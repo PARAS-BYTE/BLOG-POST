@@ -55,8 +55,14 @@ export const deleteBlog = async (id) => {
 };
 
 
-// Add this inside frontend/src/services/api.js
+// Admin Registration API
 export const adminRegister = async (credentials) => {
     const response = await API.post('/auth/register', credentials);
     return response.data;
 };
+
+// AI Blog Generation API (Calls backend Groq integration)
+export const generateAIBlog = async (topic) => {
+    const response = await API.post('/blogs/ai-generate', { topic });
+    return response.data;
+};

@@ -44,9 +44,20 @@ Respond with ONLY a valid JSON object containing these exact fields:
         const rawJson = completion.choices[0]?.message?.content;
         const aiResult = JSON.parse(rawJson);
 
+        // Curated dummy images for AI generated tech blogs
+        const dummyTechImages = [
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1504639725590-34d0984388bd?auto=format&fit=crop&w=1200&q=80"
+        ];
+        const selectedDummyImage = dummyTechImages[Math.floor(Math.random() * dummyTechImages.length)];
+
         res.json({
             title: aiResult.title || '',
             content: aiResult.content || '',
+            imageUrl: selectedDummyImage,
             tags: Array.isArray(aiResult.tags) ? aiResult.tags : [],
             conclusion: aiResult.conclusion || ''
         });
@@ -101,7 +112,7 @@ router.get('/admin/all', protect, async (req, res) => {
 // Create new blog (Protected)
 router.post('/', protect, async (req, res) => {
     try {
-        const { title, content, tags, conclusion, status } = req.body;
+        const { title, content, imageUrl, tags, conclusion, status } = req.body;
 
         if (!title || !content || !conclusion) {
             return res.status(400).json({ message: 'Please fill in all required fields' });
@@ -116,6 +127,7 @@ router.post('/', protect, async (req, res) => {
         const newBlog = new Blog({
             title,
             content,
+            imageUrl: imageUrl ? imageUrl.trim() : '',
             tags: formattedTags,
             conclusion,
             status: status || 'Draft'
@@ -131,11 +143,12 @@ router.post('/', protect, async (req, res) => {
 // Update blog (Protected)
 router.put('/:id', protect, async (req, res) => {
     try {
-        const { title, content, tags, conclusion, status } = req.body;
+        const { title, content, imageUrl, tags, conclusion, status } = req.body;
 
         const updateData = {};
         if (title !== undefined) updateData.title = title;
         if (content !== undefined) updateData.content = content;
+        if (imageUrl !== undefined) updateData.imageUrl = imageUrl.trim();
         if (conclusion !== undefined) updateData.conclusion = conclusion;
         if (status !== undefined) updateData.status = status;
         if (tags !== undefined) {

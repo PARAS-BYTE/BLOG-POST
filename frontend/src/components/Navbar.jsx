@@ -1,90 +1,121 @@
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Shield, LogOut } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Shield, LogOut, Moon } from 'lucide-react';
 
 /**
  * Navbar Component
- * Classic, clean, light-colored navigation bar used across the site.
+ * Styled with UTSANOVA's signature navy branding matching the official corporate identity.
  */
 export default function Navbar() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Check if an admin is currently logged in
   const token = localStorage.getItem('adminToken');
-  const isAdminRoute = location.pathname.startsWith('/admin');
 
-  // Handle admin logout
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     navigate('/admin/login');
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header className="bg-[#0B132B] border-b border-slate-800/80 sticky top-0 z-40 shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
         
-        {/* Brand Logo & Name */}
-        <Link to="/" className="flex items-center gap-2.5 text-slate-900 hover:text-blue-600 transition">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-            U
+        {/* UTSANOVA Official Brand Logo */}
+        <Link to="/" className="flex items-center gap-3 group">
+          {/* Stylized Logo Icon with cyber dot effect */}
+          <div className="relative flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-extrabold text-xl tracking-tighter">
+              U
+            </div>
+            {/* Ambient spark dots */}
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
           </div>
-          <div>
-            <span className="font-bold text-lg tracking-tight text-slate-900 block leading-tight">
-              UTSAN<span className="text-blue-600">OVA</span>
+
+          <div className="flex flex-col">
+            <span className="font-extrabold text-xl tracking-wider text-white leading-none">
+              UTSAN<span className="text-blue-400">OVA</span>
             </span>
-            <span className="text-xs text-slate-500 font-medium tracking-wide">
-              Engineering & Tech Blog
+            <span className="text-[10px] tracking-widest uppercase text-slate-400 font-semibold mt-0.5">
+              Technologies
             </span>
           </div>
         </Link>
 
         {/* Navigation Links */}
-        <nav className="flex items-center gap-3 sm:gap-5">
+        <nav className="flex items-center gap-2 sm:gap-6 text-sm font-medium">
           <Link
             to="/"
-            className={`text-sm font-medium transition px-3 py-1.5 rounded-md ${
+            className={`transition px-3 py-1.5 rounded-lg ${
               location.pathname === '/'
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'text-white bg-white/10'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            All Articles
+            Home
           </Link>
 
-          {/* Show Admin links depending on authentication */}
+          <a
+            href="https://about.utsanova.com"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden md:inline-block text-slate-300 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/5"
+          >
+            Services
+          </a>
+
+          <a
+            href="https://about.utsanova.com"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden md:inline-block text-slate-300 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/5"
+          >
+            Portfolio
+          </a>
+
+          <a
+            href="mailto:hr@utsanova.com"
+            className="hidden lg:inline-block text-slate-300 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/5"
+          >
+            Careers
+          </a>
+
+          {/* Admin Link / Status */}
           {token ? (
             <div className="flex items-center gap-2">
               <Link
                 to="/admin/dashboard"
-                className={`text-sm font-medium transition px-3 py-1.5 rounded-md flex items-center gap-1.5 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   location.pathname === '/admin/dashboard'
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-200 bg-white/10 hover:bg-white/20'
                 }`}
               >
-                <Shield className="w-4 h-4 text-blue-600" />
+                <Shield className="w-3.5 h-3.5 text-blue-400" />
                 Dashboard
               </Link>
-
               <button
                 onClick={handleLogout}
-                className="text-sm font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-md transition flex items-center gap-1"
-                title="Log out of admin session"
+                className="text-xs font-medium text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"
+                title="Sign out of admin"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                Logout
               </button>
             </div>
           ) : (
             <Link
               to="/admin/login"
-              className="text-sm font-medium text-slate-700 hover:text-blue-600 border border-slate-300 hover:border-blue-500 px-3.5 py-1.5 rounded-md transition flex items-center gap-1.5 bg-white shadow-xs"
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-200 border border-slate-700 hover:border-blue-400 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
             >
-              <Shield className="w-4 h-4 text-slate-500" />
+              <Shield className="w-3.5 h-3.5 text-blue-400" />
               Admin Portal
             </Link>
           )}
+
+          {/* Dark / Moon Icon as seen in reference image */}
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer">
+            <Moon className="w-4 h-4" />
+          </div>
         </nav>
 
       </div>
