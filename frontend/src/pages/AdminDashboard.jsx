@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { fetchAdminBlogs, createBlog, updateBlog, deleteBlog } from '../services/api';
+import { fetchAdminBlogs, createBlog, updateBlog, deleteBlog, generateAIBlog } from '../services/api';
 import {
   Plus,
   Edit3,
@@ -12,15 +12,18 @@ import {
   Search,
   X,
   Calendar,
-  Tag,
   AlertTriangle,
-  Eye
+  Eye,
+  Sparkles,
+  Wand2,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 /**
  * AdminDashboard Page
  * Central management portal for administrators to view analytics, create, edit,
- * and publish/unpublish blogs.
+ * and publish/unpublish blogs. Features Groq-powered AI drafting with dummy image support.
  */
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -40,9 +43,15 @@ export default function AdminDashboard() {
   // Form Fields State
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [tags, setTags] = useState('');
   const [conclusion, setConclusion] = useState('');
   const [status, setStatus] = useState('Draft');
+
+  // AI Assistant State (Powered by Groq)
+  const [aiTopic, setAiTopic] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiSuccessMessage, setAiSuccessMessage] = useState('');
 
   // Deletion confirmation state
   const [deleteCandidate, setDeleteCandidate] = useState(null);
@@ -56,7 +65,6 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error fetching admin blogs:', err);
       if (err.response?.status === 401) {
-        // If unauthorized/token expired, redirect to login
         localStorage.removeItem('adminToken');
         navigate('/admin/login');
       }
@@ -74,10 +82,13 @@ export default function AdminDashboard() {
     setEditBlogId(null);
     setTitle('');
     setContent('');
+    setImageUrl('');
     setTags('');
     setConclusion('');
     setStatus('Published');
     setModalError('');
+    setAiTopic('');
+    setAiSuccessMessage('');
     setIsModalOpen(true);
   };
 
@@ -86,11 +97,48 @@ export default function AdminDashboard() {
     setEditBlogId(blog._id);
     setTitle(blog.title);
     setContent(blog.content);
+    setImageUrl(blog.imageUrl || '');
     setTags(Array.isArray(blog.tags) ? blog.tags.join(', ') : blog.tags || '');
     setConclusion(blog.conclusion || '');
     setStatus(blog.status || 'Draft');
     setModalError('');
+    setAiTopic('');
+    setAiSuccessMessage('');
     setIsModalOpen(true);
+  };
+
+  // Generate Blog Draft using Groq LLM (includes a dummy image by default)
+  const handleGenerateWithAI = async () => {
+    if (!aiTopic.trim()) {
+      setModalError('Please enter a topic or outline for the AI assistant.');
+      return;
+    }
+
+    try {
+      setIsAiGenerating(true);
+      setModalError('');
+      setAiSuccessMessage('');
+
+      const result = await generateAIBlog(aiTopic.trim());
+
+      // Pre-fill the form with AI generated draft values & dummy image
+      if (result.title) setTitle(result.title);
+      if (result.content) setContent(result.content);
+      if (result.imageUrl) setImageUrl(result.imageUrl);
+      if (result.tags) {
+        setTags(Array.isArray(result.tags) ? result.tags.join(', ') : result.tags);
+      }
+      if (result.conclusion) setConclusion(result.conclusion);
+
+      setAiSuccessMessage('AI Draft generated with dummy cover image! Review and adjust any values before saving.');
+    } catch (err) {
+      console.error('Failed to generate with AI:', err);
+      setModalError(
+        err.response?.data?.message || 'Failed to generate blog draft with AI. Please try again.'
+      );
+    } finally {
+      setIsAiGenerating(false);
+    }
   };
 
   // Save Blog (Handles both Create and Update)
@@ -108,6 +156,7 @@ export default function AdminDashboard() {
       const blogData = {
         title: title.trim(),
         content: content.trim(),
+        imageUrl: imageUrl.trim(),
         tags: tags,
         conclusion: conclusion.trim(),
         status: status
@@ -323,7 +372,7 @@ export default function AdminDashboard() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4 sm:px-6">Article Title & Details</th>
+                  <th className="py-3.5 px-4 sm:px-6">Article Details</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">Created Date</th>
                   <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
@@ -333,24 +382,40 @@ export default function AdminDashboard() {
                 {filteredBlogs.map((blog) => (
                   <tr key={blog._id} className="hover:bg-slate-50/70 transition">
                     
-                    {/* Title & Tags */}
+                    {/* Thumbnail + Title & Tags */}
                     <td className="py-4 px-4 sm:px-6 max-w-sm">
-                      <div className="font-semibold text-slate-900 text-sm line-clamp-1 mb-1">
-                        {blog.title}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {blog.tags && blog.tags.length > 0 ? (
-                          blog.tags.map((t, i) => (
-                            <span
-                              key={i}
-                              className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium"
-                            >
-                              #{t}
-                            </span>
-                          ))
+                      <div className="flex items-center gap-3">
+                        {blog.imageUrl ? (
+                          <img
+                            src={blog.imageUrl}
+                            alt=""
+                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
                         ) : (
-                          <span className="text-[10px] text-slate-400">No tags</span>
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                            <ImageIcon className="w-5 h-5 text-slate-400" />
+                          </div>
                         )}
+                        <div>
+                          <div className="font-semibold text-slate-900 text-sm line-clamp-1 mb-1">
+                            {blog.title}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {blog.tags && blog.tags.length > 0 ? (
+                              blog.tags.map((t, i) => (
+                                <span
+                                  key={i}
+                                  className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium"
+                                >
+                                  #{t}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-slate-400">No tags</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
 
@@ -389,7 +454,6 @@ export default function AdminDashboard() {
                     {/* Action Buttons */}
                     <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1">
-                        {/* Preview / View live */}
                         <Link
                           to={`/blog/${blog._id}`}
                           target="_blank"
@@ -398,8 +462,6 @@ export default function AdminDashboard() {
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
-
-                        {/* Edit */}
                         <button
                           onClick={() => openEditModal(blog)}
                           title="Edit article"
@@ -407,8 +469,6 @@ export default function AdminDashboard() {
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-
-                        {/* Delete */}
                         <button
                           onClick={() => setDeleteCandidate(blog)}
                           title="Delete article"
@@ -434,13 +494,13 @@ export default function AdminDashboard() {
           <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 shadow-xl my-8">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">
                   {editBlogId ? 'Edit Article' : 'Create New Article'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Fill in the fields below to update or publish content.
+                  Fill in the fields below or generate a draft with AI before saving.
                 </p>
               </div>
               <button
@@ -449,6 +509,56 @@ export default function AdminDashboard() {
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* AI BLOG DRAFT ASSISTANT BOX (Powered by Groq with dummy image) */}
+            <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 border border-blue-200 rounded-xl p-4 mb-5 shadow-2xs">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  Generate Draft with AI (Powered by Groq)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
+                Provide a topic or brief summary. The AI will populate Title, Content, Cover Image (dummy), Tags, and Conclusion for you to review and edit before saving.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g., Best Practices for Next.js App Router and Server Components"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  disabled={isAiGenerating}
+                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={handleGenerateWithAI}
+                  disabled={isAiGenerating}
+                  className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition shadow-xs cursor-pointer whitespace-nowrap"
+                >
+                  {isAiGenerating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Drafting with AI...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Generate Draft
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* AI Success Feedback */}
+              {aiSuccessMessage && (
+                <div className="mt-2.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md p-2 flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                  <span>{aiSuccessMessage}</span>
+                </div>
+              )}
             </div>
 
             {/* Error Message inside modal */}
@@ -476,6 +586,36 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              {/* Cover Image URL Input with Live Preview */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Cover Image URL
+                  </label>
+                  <span className="text-[11px] text-slate-400">Direct link (e.g. Unsplash)</span>
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/photo-1518770660439-4636190af475..."
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900"
+                />
+                {imageUrl && (
+                  <div className="mt-2 relative h-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                    <img
+                      src={imageUrl}
+                      alt="Cover Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <span className="absolute bottom-1 right-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">
+                      Cover Preview
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Main Content Textarea */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -484,7 +624,7 @@ export default function AdminDashboard() {
                 <textarea
                   required
                   rows={6}
-                  placeholder="Write the full content of the article here..."
+                  placeholder="Write or edit the full content of the article here..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 leading-relaxed font-sans"
