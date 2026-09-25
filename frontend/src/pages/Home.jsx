@@ -8,20 +8,20 @@ import {
   Clock,
   ArrowRight,
   X,
-  Play,
   Sparkles,
-  BookOpen
+  BookOpen,
+  ArrowDown,
+  Shield
 } from 'lucide-react';
 
 /**
  * Home Page (Public Blog Listing)
- * Features the signature UTSANOVA corporate hero banner (matching the official site),
- * live search, tag discovery, and rich blog cards with cover image support.
+ * Incorporates the colors, smooth radial lighting, and pill shapes from the UTSANOVA
+ * reference design while structuring the content authentically for a technical blog.
  */
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Get initial filter values from URL if user arrived via link (e.g. /?tag=React)
   const initialTag = searchParams.get('tag') || '';
   const initialSearch = searchParams.get('search') || '';
 
@@ -31,14 +31,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [availableTags, setAvailableTags] = useState([]);
 
-  // Fetch blogs from API based on current search and tag filters
+  // Fetch blogs from API based on search and tag filters
   const loadBlogs = async (searchTerm = '', tagTerm = '') => {
     try {
       setLoading(true);
       const data = await fetchPublishedBlogs(searchTerm, tagTerm);
       setBlogs(data);
 
-      // Collect all unique tags for filter badges
       if (!tagTerm && !searchTerm) {
         const uniqueTags = Array.from(
           new Set(data.flatMap((b) => (Array.isArray(b.tags) ? b.tags : [])))
@@ -60,20 +59,17 @@ export default function Home() {
     loadBlogs(urlSearch, urlTag);
   }, [searchParams]);
 
-  // Handle Search Submission
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     updateFilters(searchQuery, selectedTag);
   };
 
-  // Handle Tag Selection
   const handleTagClick = (tag) => {
     const newTag = selectedTag === tag ? '' : tag;
     setSelectedTag(newTag);
     updateFilters(searchQuery, newTag);
   };
 
-  // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedTag('');
@@ -89,59 +85,95 @@ export default function Home() {
     loadBlogs(search, tag);
   };
 
-  const scrollToBlogs = () => {
-    const section = document.getElementById('blog-feed');
+  const scrollToArticles = () => {
+    const section = document.getElementById('articles-feed');
     if (section) {
       section.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       
       {/* ========================================================================= */}
-      {/* UTSANOVA SIGNATURE CORPORATE HERO (As shown in official reference design) */}
+      {/* UTSANOVA SIGNATURE HERO SECTION (Colors & pill shapes from reference)     */}
       {/* ========================================================================= */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0B132B] via-[#101A38] to-[#162247] text-white pt-20 pb-24 px-4 sm:px-6">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0B132B] via-[#101A38] to-[#152245] text-white pt-16 pb-20 px-4 sm:px-6">
         
-        {/* Subtle Ambient Radial Lighting Background */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-blue-500/10 blur-[120px] pointer-events-none rounded-full"></div>
+        {/* Soft Ambient Radial Glow (from reference image) */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[380px] bg-blue-500/10 blur-[130px] pointer-events-none rounded-full"></div>
 
         <div className="relative max-w-4xl mx-auto text-center">
           
-          {/* Main Headline */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15] text-white mb-6">
-            Building Scalable Digital Solutions for Tomorrow's World
+          {/* Blog Badge */}
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 text-blue-300 text-xs font-semibold mb-6 backdrop-blur-md">
+            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+            <span>UTSANOVA ENGINEERING & TECH JOURNAL</span>
+          </div>
+
+          {/* Authentic Blog Headline */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15] text-white mb-5">
+            Engineering Ideas, Modern Architecture & Tech Insights
           </h1>
 
-          {/* Subheading */}
-          <p className="text-slate-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
-            Utsanova Technologies Pvt Ltd is a technology-driven company creating innovative platforms, intelligent systems, and impactful digital experiences across industries.
+          {/* Subtitle */}
+          <p className="text-slate-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed mb-8">
+            Explore deep dives into scalable backend systems, cloud infrastructure, modern React applications, and AI agent workflows curated by UTSANOVA engineers.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Integrated Glass Pill Search Bar (Adopting reference pill shapes) */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+              <Search className="absolute left-4 text-slate-400 w-5 h-5 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search articles by title, keyword, or tech tag..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-28 py-3.5 rounded-full bg-white/10 border border-white/20 text-white placeholder-slate-400 text-sm backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-[#0B132B]/80 transition shadow-inner"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    updateFilters('', selectedTag);
+                  }}
+                  className="absolute right-24 text-slate-400 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="submit"
+                className="absolute right-1.5 px-5 py-2 rounded-full bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition shadow-md cursor-pointer"
+              >
+                Search
+              </button>
+            </form>
+          </div>
+
+          {/* Pill Action Buttons (Pill geometry from reference image) */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={scrollToBlogs}
-              className="w-full sm:w-auto px-7 py-3 rounded-full bg-white text-slate-900 font-bold text-sm hover:bg-slate-100 transition shadow-lg cursor-pointer"
+              onClick={scrollToArticles}
+              className="px-7 py-2.5 rounded-full bg-white text-slate-900 font-bold text-xs sm:text-sm hover:bg-slate-100 transition shadow-lg cursor-pointer flex items-center gap-1.5"
             >
-              Get Started
+              Explore Articles <ArrowDown className="w-3.5 h-3.5" />
             </button>
 
             <Link
               to="/admin/login"
-              className="w-full sm:w-auto px-7 py-3 rounded-full bg-white/10 hover:bg-white/15 text-white border border-white/20 backdrop-blur-md font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+              className="px-7 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white border border-white/20 backdrop-blur-md font-semibold text-xs sm:text-sm transition flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-4 h-4 fill-white" />
-              Watch Intro
+              <Shield className="w-3.5 h-3.5 text-blue-400" />
+              Admin Portal
             </Link>
           </div>
 
-          {/* Subtle Carousel Dots from Reference */}
-          <div className="flex items-center justify-center gap-2 mt-16 opacity-75">
+          {/* Subtle Carousel Dots (Design element from reference image) */}
+          <div className="flex items-center justify-center gap-2 mt-12 opacity-60">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
             <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
             <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
             <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
@@ -152,99 +184,67 @@ export default function Home() {
       </section>
 
       {/* ========================================================================= */}
-      {/* BLOG FEED & EXPLORATION SECTION */}
+      {/* TOPIC PILLS BAR                                                           */}
       {/* ========================================================================= */}
-      <section id="blog-feed" className="max-w-6xl mx-auto px-4 sm:px-6 py-12 flex-1 w-full">
-        
-        {/* Section Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-1 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" /> Latest Publications
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              Engineering Insights & Articles
-            </h2>
+      <div id="explore-topics" className="bg-[#0B132B] border-b border-slate-800 py-3.5 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 overflow-x-auto text-xs">
+          <div className="flex items-center gap-1.5 text-slate-400 font-semibold uppercase tracking-wider flex-shrink-0">
+            <Tag className="w-3.5 h-3.5 text-blue-400" /> Topics:
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-sm">
-            Discover technical guides, architectural best practices, and tutorials written by our engineering team.
-          </p>
-        </div>
 
-        {/* Search & Tag Filter Bar */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs mb-8">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search articles by title, keyword, or tag..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 transition"
-              />
-              {searchQuery && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {availableTags.map((tag) => {
+              const isActive = selectedTag.toLowerCase() === tag.toLowerCase();
+              return (
                 <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    updateFilters('', selectedTag);
-                  }}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  key={tag}
+                  onClick={() => handleTagClick(tag)}
+                  className={`px-3 py-1 rounded-full transition font-medium cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-slate-700'
+                  }`}
                 >
-                  <X className="w-4 h-4" />
+                  #{tag}
                 </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              Search
-            </button>
-          </form>
+              );
+            })}
+          </div>
 
-          {/* Quick Tag Pills */}
-          {availableTags.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-slate-500 font-semibold mr-1 flex items-center gap-1">
-                <Tag className="w-3 h-3 text-slate-400" /> Topics:
-              </span>
-              {availableTags.map((tag) => {
-                const isActive = selectedTag.toLowerCase() === tag.toLowerCase();
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => handleTagClick(tag)}
-                    className={`px-3 py-1 rounded-lg transition font-medium cursor-pointer ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    #{tag}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Active Filter Badge */}
           {(selectedTag || searchQuery) && (
-            <div className="mt-3 flex items-center justify-between bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-lg text-xs text-blue-900">
-              <span>
-                Active filter:{' '}
-                {searchQuery && <strong className="mr-2">"{searchQuery}"</strong>}
-                {selectedTag && <span>Tag: <strong>#{selectedTag}</strong></span>}
-              </span>
-              <button
-                onClick={clearFilters}
-                className="text-blue-700 hover:text-blue-900 font-bold underline ml-3 cursor-pointer"
-              >
-                Clear all
-              </button>
-            </div>
+            <button
+              onClick={clearFilters}
+              className="text-blue-400 hover:text-blue-300 font-semibold underline flex-shrink-0 ml-auto"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* ARTICLES FEED SECTION                                                     */}
+      {/* ========================================================================= */}
+      <section id="articles-feed" className="max-w-6xl mx-auto px-4 sm:px-6 py-12 flex-1 w-full">
+        
+        {/* Section Header */}
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+              {selectedTag ? `Articles Tagged: #${selectedTag}` : searchQuery ? `Search Results for "${searchQuery}"` : 'Recent Engineering Articles'}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Showing {blogs.length} published {blogs.length === 1 ? 'article' : 'articles'}
+            </p>
+          </div>
+          
+          {(selectedTag || searchQuery) && (
+            <button
+              onClick={clearFilters}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full"
+            >
+              Clear Active Filters
+            </button>
           )}
         </div>
 
@@ -256,7 +256,7 @@ export default function Home() {
                 <div className="h-48 bg-slate-200 w-full"></div>
                 <div className="p-5">
                   <div className="h-4 bg-slate-200 rounded w-1/3 mb-3"></div>
-                  <div className="h-6 bg-slate-200 rounded w-5/6 mb-2"></div>
+                  <div className="h-5 bg-slate-200 rounded w-5/6 mb-2"></div>
                   <div className="h-4 bg-slate-100 rounded w-full mb-1"></div>
                   <div className="h-4 bg-slate-100 rounded w-4/5 mb-4"></div>
                 </div>
@@ -270,13 +270,13 @@ export default function Home() {
             </div>
             <h3 className="text-base font-bold text-slate-800 mb-1">No articles found</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
-              We couldn't find any articles matching your search. Try changing the keywords or clearing selected tags.
+              We couldn't find any articles matching your search criteria. Try using different keywords or resetting filters.
             </p>
             <button
               onClick={clearFilters}
-              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg transition"
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-5 py-2 rounded-full transition cursor-pointer"
             >
-              Clear Filters
+              Reset Filters
             </button>
           </div>
         ) : (
@@ -299,13 +299,12 @@ export default function Home() {
                           alt={blog.title}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => {
-                            // Fallback if image link is broken
                             e.target.style.display = 'none';
                           }}
                         />
                       </div>
                     ) : (
-                      // Branded fallback cover if no image provided
+                      // Branded Navy Fallback Banner
                       <div className="h-48 bg-gradient-to-tr from-[#0B132B] via-[#101A38] to-[#1E293B] flex items-center justify-center p-6 text-center relative overflow-hidden">
                         <span className="text-4xl font-extrabold text-white/10 absolute -right-4 -bottom-4 select-none">
                           UTSAN<span className="text-blue-500/20">OVA</span>
@@ -345,22 +344,22 @@ export default function Home() {
                         {blog.content}
                       </p>
 
-                      {/* Tags */}
+                      {/* Tags as Pill Badges */}
                       {blog.tags && blog.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-4">
+                        <div className="flex flex-wrap gap-1.5 mb-4">
                           {blog.tags.slice(0, 3).map((t, idx) => (
                             <button
                               key={idx}
                               type="button"
                               onClick={() => handleTagClick(t)}
-                              className="text-[11px] bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-md transition font-medium"
+                              className="text-[11px] bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2.5 py-0.5 rounded-full transition font-medium cursor-pointer"
                             >
                               #{t}
                             </button>
                           ))}
                           {blog.tags.length > 3 && (
                             <span className="text-[10px] text-slate-400 self-center">
-                              +{blog.tags.length - 3} more
+                              +{blog.tags.length - 3}
                             </span>
                           )}
                         </div>
@@ -368,8 +367,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Card Footer */}
-                  <div className="px-5 pb-5 pt-0 border-t border-slate-100/60 mt-auto flex items-center justify-between">
+                  {/* Card Bottom Bar */}
+                  <div className="px-5 pb-5 pt-0 border-t border-slate-100 mt-auto flex items-center justify-between">
                     <span className="text-[11px] text-slate-400 font-medium">Article</span>
                     <Link
                       to={`/blog/${blog._id}`}
