@@ -3,27 +3,31 @@ const router = express.Router();
 const Blog = require('../models/Blog');
 const { protect } = require('../middleware/authMiddleware');
 
-// Get published blogs (with search and tag filter)
+// Get published blogs (supports search by title/keywords/tags and tag filtering)
 router.get('/', async (req, res) => {
     try {
         const { search, tag } = req.query;
         let query = { status: 'Published' };
 
-        if (tag) {
-            query.tags = tag;
+        // Filter by exact tag if clicked by user (case-insensitive)
+        if (tag && tag.trim()) {
+            query.tags = { $regex: new RegExp(`^${tag.trim()}$`, 'i') };
         }
 
-        if (search) {
+        // Search across Title, Body Content keywords, and Tags
+        if (search && search.trim()) {
+            const searchRegex = { $regex: search.trim(), $options: 'i' };
             query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { content: { $regex: search, $options: 'i' } }
+                { title: searchRegex },
+                { content: searchRegex },
+                { tags: searchRegex }
             ];
         }
 
         const blogs = await Blog.find(query).sort({ createdAt: -1 });
         res.json(blogs);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ message: 'Error retrieving blogs', error: error.message });
     }
 });
 
