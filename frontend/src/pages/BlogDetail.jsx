@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchBlogById } from '../services/api';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
   ArrowLeft,
   Calendar,
@@ -152,21 +153,19 @@ export default function BlogDetail() {
 
       {/* Main Body Content */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 shadow-xs mb-8">
-        <div className="text-slate-800 text-base sm:text-lg leading-relaxed whitespace-pre-line space-y-4 font-normal">
-          {blog.content}
-        </div>
+        <MarkdownRenderer content={blog.content} />
       </div>
 
       {/* Structured Conclusion Section */}
       {blog.conclusion && (
         <section className="bg-blue-50/70 border border-blue-200 rounded-2xl p-6 sm:p-8 mb-8">
-          <h3 className="font-bold text-blue-950 text-base sm:text-lg mb-2 flex items-center gap-2">
+          <h3 className="font-bold text-blue-950 text-base sm:text-lg mb-3 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
             Conclusion & Key Takeaways
           </h3>
-          <p className="text-slate-700 text-sm sm:text-base leading-relaxed pl-7">
-            {blog.conclusion}
-          </p>
+          <div className="pl-7 text-slate-700 text-sm sm:text-base leading-relaxed">
+            <MarkdownRenderer content={blog.conclusion} />
+          </div>
         </section>
       )}
 

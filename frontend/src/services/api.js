@@ -1,13 +1,18 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api'
+    baseURL: import.meta.env.VITE_API_URL || '/api'
 });
 
 // Public Blog APIs
-export const fetchPublishedBlogs = async (search = '', tag = '') => {
-    const response = await API.get(`/blogs?search=${search}&tag=${tag}`);
-    console.log('Fetching blogs')
+export const fetchPublishedBlogs = async (search = '', tag = '', page = 1, limit = 6) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (tag) params.append('tag', tag);
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
+
+    const response = await API.get(`/blogs?${params.toString()}`);
     return response.data;
 };
 
@@ -34,8 +39,13 @@ export const adminLogin = async (credentials) => {
 };
 
 // Admin Blog Management APIs
-export const fetchAdminBlogs = async () => {
-    const response = await API.get('/blogs/admin/all');
+export const fetchAdminBlogs = async (search = '', page = '', limit = '') => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const response = await API.get(`/blogs/admin/all${queryString}`);
     return response.data;
 };
 

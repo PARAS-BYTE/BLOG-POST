@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { fetchPublishedBlogs } from '../services/api';
+import { stripMarkdown } from '../utils/markdownUtils';
 import {
   Search,
   Calendar,
@@ -8,19 +9,38 @@ import {
   Clock,
   ArrowRight,
   X,
-  BookOpen
+  BookOpen,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
+
+/**
+ * Generate smart pagination numbers array with ellipsis
+ */
+function getPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, '...', totalPages];
+  }
+  if (currentPage >= totalPages - 2) {
+    return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+}
 
 /**
  * Home Page (Public Blog Listing)
  * Simple, clean, and modern blog interface with a straightforward search bar,
- * tag filtering, and article feed with cover image support.
+ * tag filtering, article feed, and server-side pagination for fast initial loading.
  */
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialTag = searchParams.get('tag') || '';
   const initialSearch = searchParams.get('search') || '';
+  const initialPage = parseInt(searchParams.get('page'), 10) || 1;
 
   const [blogs, setBlogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -28,18 +48,44 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [availableTags, setAvailableTags] = useState([]);
 
-  // Fetch blogs from API based on search and tag filters
-  const loadBlogs = async (searchTerm = '', tagTerm = '') => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBlogs, setTotalBlogs] = useState(0);
+  const [limit, setLimit] = useState(6);
+
+  // Fetch blogs from API based on search, tag, and pagination parameters
+  const loadBlogs = async (searchTerm = '', tagTerm = '', pageNum = 1, limitNum = limit) => {
     try {
       setLoading(true);
-      const data = await fetchPublishedBlogs(searchTerm, tagTerm);
-      setBlogs(data);
+      const data = await fetchPublishedBlogs(searchTerm, tagTerm, pageNum, limitNum);
 
-      if (!tagTerm && !searchTerm) {
-        const uniqueTags = Array.from(
-          new Set(data.flatMap((b) => (Array.isArray(b.tags) ? b.tags : [])))
-        ).filter(Boolean);
-        setAvailableTags(uniqueTags);
+      if (Array.isArray(data)) {
+        setBlogs(data);
+        setTotalBlogs(data.length);
+        setTotalPages(1);
+        setCurrentPage(1);
+
+        if (!tagTerm && !searchTerm) {
+          const uniqueTags = Array.from(
+            new Set(data.flatMap((b) => (Array.isArray(b.tags) ? b.tags : [])))
+          ).filter(Boolean);
+          setAvailableTags(uniqueTags);
+        }
+      } else if (data && data.blogs) {
+        setBlogs(data.blogs);
+        setTotalBlogs(data.totalBlogs || 0);
+        setTotalPages(data.totalPages || 1);
+        setCurrentPage(data.currentPage || pageNum);
+
+        if (data.tags && data.tags.length > 0) {
+          setAvailableTags(data.tags);
+        } else if (!tagTerm && !searchTerm && availableTags.length === 0) {
+          const uniqueTags = Array.from(
+            new Set(data.blogs.flatMap((b) => (Array.isArray(b.tags) ? b.tags : [])))
+          ).filter(Boolean);
+          setAvailableTags(uniqueTags);
+        }
       }
     } catch (err) {
       console.error('Failed to load published blogs:', err);
@@ -51,10 +97,13 @@ export default function Home() {
   useEffect(() => {
     const urlTag = searchParams.get('tag') || '';
     const urlSearch = searchParams.get('search') || '';
+    const urlPage = parseInt(searchParams.get('page'), 10) || 1;
+
     setSelectedTag(urlTag);
     setSearchQuery(urlSearch);
-    loadBlogs(urlSearch, urlTag);
-  }, [searchParams]);
+    setCurrentPage(urlPage);
+    loadBlogs(urlSearch, urlTag, urlPage, limit);
+  }, [searchParams, limit]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -67,19 +116,36 @@ export default function Home() {
     updateFilters(searchQuery, newTag);
   };
 
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    const params = {};
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (selectedTag.trim()) params.tag = selectedTag.trim();
+    if (newPage > 1) params.page = newPage;
+    setSearchParams(params);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setLimit(newLimit);
+    const params = {};
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (selectedTag.trim()) params.tag = selectedTag.trim();
+    setSearchParams(params);
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedTag('');
     setSearchParams({});
-    loadBlogs('', '');
   };
 
   const updateFilters = (search, tag) => {
     const params = {};
     if (search.trim()) params.search = search.trim();
     if (tag.trim()) params.tag = tag.trim();
+    // Do not include page in params, resetting to page 1
     setSearchParams(params);
-    loadBlogs(search, tag);
   };
 
   return (
@@ -184,7 +250,15 @@ export default function Home() {
               : 'All Published Articles'}
           </span>
           <span>
-            Showing {blogs.length} {blogs.length === 1 ? 'article' : 'articles'}
+            {totalBlogs > 0 ? (
+              <>
+                Showing <strong className="text-slate-800 font-semibold">{(currentPage - 1) * limit + 1}</strong>–
+                <strong className="text-slate-800 font-semibold">{Math.min(currentPage * limit, totalBlogs)}</strong> of{' '}
+                <strong className="text-slate-800 font-semibold">{totalBlogs}</strong> {totalBlogs === 1 ? 'article' : 'articles'}
+              </>
+            ) : (
+              '0 articles'
+            )}
           </span>
         </div>
 
@@ -281,7 +355,7 @@ export default function Home() {
 
                       {/* Excerpt */}
                       <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4 line-clamp-3">
-                        {blog.content}
+                        {stripMarkdown(blog.content)}
                       </p>
 
                       {/* Tags as Pill Badges */}
@@ -322,6 +396,97 @@ export default function Home() {
               );
             })}
           </div>
+        )}
+
+        {/* Pagination Navigation Bar */}
+        {!loading && totalPages > 1 && (
+          <nav
+            aria-label="Blog pagination"
+            className="mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            {/* Range info and items per page selector */}
+            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-500 font-medium">
+              <span>
+                Page <strong className="text-slate-900 font-semibold">{currentPage}</strong> of{' '}
+                <strong className="text-slate-900 font-semibold">{totalPages}</strong>
+              </span>
+
+              <span className="text-slate-300 hidden sm:inline">•</span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400">Per page:</span>
+                {[6, 9, 12].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleLimitChange(num)}
+                    className={`px-2 py-0.5 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      limit === num
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 bg-slate-100'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Page Buttons */}
+            <div className="flex items-center gap-1.5">
+              {/* Previous Page Button */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="inline-flex items-center gap-1 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-slate-700 transition cursor-pointer shadow-2xs"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+
+              {/* Page Number Buttons */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers(currentPage, totalPages).map((p, idx) => {
+                  if (p === '...') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-2 py-1 text-slate-400 text-xs font-bold select-none">
+                        …
+                      </span>
+                    );
+                  }
+                  const isActive = p === currentPage;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => handlePageChange(p)}
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-600/20'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Page Button */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="inline-flex items-center gap-1 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-slate-700 transition cursor-pointer shadow-2xs"
+                aria-label="Next page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </nav>
         )}
 
       </main>

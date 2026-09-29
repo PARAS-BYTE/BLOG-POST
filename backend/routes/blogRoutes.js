@@ -23,12 +23,19 @@ router.post('/ai-generate', protect, async (req, res) => {
 
         const systemPrompt = `You are an expert technical blog writer for UTSANOVA Technologies.
 Generate an engaging, educational, and well-structured blog post draft based on the user's prompt.
+Format the "content" field using rich Markdown:
+- Use clean section headers (## Section Title, ### Subsections)
+- Use **bold** for key concepts and emphasis
+- Use bullet points (- or *) for lists and key takeaways
+- Include clean code snippets (\`\`\`language) if discussing code or architecture
+- Write detailed, informative paragraphs with smooth transitions.
+
 Respond with ONLY a valid JSON object containing these exact fields:
 {
   "title": "A compelling, professional blog title",
-  "content": "Comprehensive, multi-paragraph blog body explaining key concepts, architectures, and practical tips",
+  "content": "Comprehensive, multi-paragraph blog body formatted in rich Markdown",
   "tags": ["Array", "Of", "3-5", "Keywords"],
-  "conclusion": "A concise summary paragraph highlighting key takeaways"
+  "conclusion": "A concise summary highlighting key takeaways (can include bullet points or bold text in Markdown)"
 }`;
 
         const completion = await groq.chat.completions.create({
@@ -70,10 +77,10 @@ Respond with ONLY a valid JSON object containing these exact fields:
     }
 });
 
-// Get published blogs (supports search by title/keywords/tags and tag filtering)
+// Get published blogs (supports search, tag filtering, and pagination)
 router.get('/', async (req, res) => {
     try {
-        const { search, tag } = req.query;
+        const { search, tag, page, limit, all } = req.query;
         let query = { status: 'Published' };
 
         // Filter by exact tag if clicked by user (case-insensitive)
@@ -91,18 +98,80 @@ router.get('/', async (req, res) => {
             ];
         }
 
-        const blogs = await Blog.find(query).sort({ createdAt: -1 });
-        res.json(blogs);
+        // If client explicitly requests all blogs without pagination
+        if (all === 'true') {
+            const blogs = await Blog.find(query).sort({ createdAt: -1 });
+            return res.json(blogs);
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 6));
+        const skip = (pageNum - 1) * limitNum;
+
+        const totalBlogs = await Blog.countDocuments(query);
+        const totalPages = Math.max(1, Math.ceil(totalBlogs / limitNum));
+
+        const blogs = await Blog.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        // Fetch distinct tags across all published blogs for filter bar
+        const allPublishedTags = await Blog.distinct('tags', { status: 'Published' });
+
+        res.json({
+            blogs,
+            totalBlogs,
+            totalPages,
+            currentPage: pageNum,
+            limit: limitNum,
+            hasMore: pageNum < totalPages,
+            tags: allPublishedTags.filter(Boolean)
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving blogs', error: error.message });
     }
 });
 
-// Get all blogs for admin dashboard (Draft + Published)
+// Get all blogs for admin dashboard (Draft + Published, optional pagination)
 // NOTE: Must be defined before /:id route
 router.get('/admin/all', protect, async (req, res) => {
     try {
-        const blogs = await Blog.find().sort({ createdAt: -1 });
+        const { search, page, limit } = req.query;
+        let query = {};
+
+        if (search && search.trim()) {
+            const searchRegex = { $regex: search.trim(), $options: 'i' };
+            query.$or = [
+                { title: searchRegex },
+                { content: searchRegex },
+                { tags: searchRegex }
+            ];
+        }
+
+        if (page || limit) {
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+            const skip = (pageNum - 1) * limitNum;
+
+            const totalBlogs = await Blog.countDocuments(query);
+            const totalPages = Math.max(1, Math.ceil(totalBlogs / limitNum));
+
+            const blogs = await Blog.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum);
+
+            return res.json({
+                blogs,
+                totalBlogs,
+                totalPages,
+                currentPage: pageNum,
+                limit: limitNum
+            });
+        }
+
+        const blogs = await Blog.find(query).sort({ createdAt: -1 });
         res.json(blogs);
     } catch (error) {
         res.status(500).json({ message: error.message });

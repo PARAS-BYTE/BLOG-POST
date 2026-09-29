@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { fetchAdminBlogs, createBlog, updateBlog, deleteBlog, generateAIBlog } from '../services/api';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
   Plus,
   Edit3,
@@ -17,7 +18,9 @@ import {
   Sparkles,
   Wand2,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 /**
@@ -47,6 +50,7 @@ export default function AdminDashboard() {
   const [tags, setTags] = useState('');
   const [conclusion, setConclusion] = useState('');
   const [status, setStatus] = useState('Draft');
+  const [contentTab, setContentTab] = useState('write'); // 'write' | 'preview'
 
   // AI Assistant State (Powered by Groq)
   const [aiTopic, setAiTopic] = useState('');
@@ -86,6 +90,7 @@ export default function AdminDashboard() {
     setTags('');
     setConclusion('');
     setStatus('Published');
+    setContentTab('write');
     setModalError('');
     setAiTopic('');
     setAiSuccessMessage('');
@@ -101,6 +106,7 @@ export default function AdminDashboard() {
     setTags(Array.isArray(blog.tags) ? blog.tags.join(', ') : blog.tags || '');
     setConclusion(blog.conclusion || '');
     setStatus(blog.status || 'Draft');
+    setContentTab('write');
     setModalError('');
     setAiTopic('');
     setAiSuccessMessage('');
@@ -225,6 +231,20 @@ export default function AdminDashboard() {
 
     return matchesTab && matchesSearch;
   });
+
+  // Admin Table Pagination
+  const [adminPage, setAdminPage] = useState(1);
+  const adminPageSize = 8;
+  const totalAdminPages = Math.max(1, Math.ceil(filteredBlogs.length / adminPageSize));
+
+  useEffect(() => {
+    setAdminPage(1);
+  }, [filterSearch, activeTab]);
+
+  const paginatedBlogs = filteredBlogs.slice(
+    (adminPage - 1) * adminPageSize,
+    adminPage * adminPageSize
+  );
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -379,7 +399,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                {filteredBlogs.map((blog) => (
+                {paginatedBlogs.map((blog) => (
                   <tr key={blog._id} className="hover:bg-slate-50/70 transition">
                     
                     {/* Thumbnail + Title & Tags */}
@@ -483,6 +503,57 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+
+            {/* Admin Table Pagination Bar */}
+            {totalAdminPages > 1 && (
+              <div className="p-3 sm:px-6 sm:py-3.5 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                <div>
+                  Showing{' '}
+                  <strong className="text-slate-800 font-semibold">{(adminPage - 1) * adminPageSize + 1}</strong> to{' '}
+                  <strong className="text-slate-800 font-semibold">{Math.min(adminPage * adminPageSize, filteredBlogs.length)}</strong> of{' '}
+                  <strong className="text-slate-800 font-semibold">{filteredBlogs.length}</strong> articles
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={adminPage === 1}
+                    onClick={() => setAdminPage((prev) => Math.max(1, prev - 1))}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-blue-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalAdminPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setAdminPage(p)}
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          p === adminPage
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={adminPage === totalAdminPages}
+                    onClick={() => setAdminPage((prev) => Math.min(totalAdminPages, prev + 1))}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-blue-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                    title="Next page"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -616,19 +687,66 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Main Content Textarea */}
+              {/* Main Content with Write / Live Preview Tabs */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Main Content / Body *
-                </label>
-                <textarea
-                  required
-                  rows={6}
-                  placeholder="Write or edit the full content of the article here..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 leading-relaxed font-sans"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Main Content / Body * <span className="text-[11px] text-blue-600 font-normal lowercase">(Markdown supported)</span>
+                  </label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setContentTab('write')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center gap-1 ${
+                        contentTab === 'write'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileEdit className="w-3.5 h-3.5" />
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContentTab('preview')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center gap-1 ${
+                        contentTab === 'preview'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Live Preview
+                    </button>
+                  </div>
+                </div>
+
+                {contentTab === 'write' ? (
+                  <>
+                    <textarea
+                      required
+                      rows={7}
+                      placeholder="Write or edit using Markdown syntax (## Headings, **bold**, *italic*, - bullet lists, ```code```)..."
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 leading-relaxed font-mono"
+                    />
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
+                      <span>Supports <strong>##</strong> headings, <strong>**bold**</strong>, <strong>-</strong> lists, and code blocks.</span>
+                      <span>{content ? content.split(/\s+/).filter(Boolean).length : 0} words</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="min-h-[180px] max-h-[320px] overflow-y-auto p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    {content.trim() ? (
+                      <MarkdownRenderer content={content} />
+                    ) : (
+                      <p className="text-slate-400 italic text-sm text-center py-8">
+                        No content written yet. Switch to "Write" tab or generate with AI to see live preview.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Tags Input */}
