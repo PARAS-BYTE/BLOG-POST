@@ -38,11 +38,12 @@ const staticPath = fs.existsSync(publicDistPath) ? publicDistPath : (fs.existsSy
 
 if (staticPath) {
     app.use(express.static(staticPath));
-    app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api')) {
-            return next();
+    // SPA catch-all (Express 5 compatible)
+    app.use((req, res, next) => {
+        if (req.method === 'GET' && !req.path.startsWith('/api')) {
+            return res.sendFile(path.join(staticPath, 'index.html'));
         }
-        res.sendFile(path.join(staticPath, 'index.html'));
+        next();
     });
 } else {
     app.get('/', (req, res) => {
