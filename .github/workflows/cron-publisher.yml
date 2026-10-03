@@ -1,0 +1,26 @@
+name: Scheduled Blog Publisher (Free Recurring Trigger)
+
+on:
+  schedule:
+    # Runs every 5 minutes (GitHub Actions standard cron)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub Actions tab
+
+jobs:
+  publish-due-posts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Scheduled Posts API
+        env:
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -n "$VERCEL_APP_URL" ] && [ -n "$CRON_SECRET" ]; then
+            echo "Invoking ${VERCEL_APP_URL}/api/cron/publish-scheduled-posts..."
+            curl -s -f -X GET "${VERCEL_APP_URL}/api/cron/publish-scheduled-posts" \
+              -H "Authorization: Bearer ${CRON_SECRET}"
+            echo ""
+            echo "Scheduler execution completed."
+          else
+            echo "Notice: To activate free 5-minute automated triggers, add VERCEL_APP_URL and CRON_SECRET to your GitHub Repo Settings -> Secrets -> Actions."
+          fi
