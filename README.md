@@ -418,27 +418,31 @@ The administrative portal provides a streamlined, role-aware workflow for articl
 Deploying the complete application (Frontend, Express Backend, and Vercel Cron) takes under 3 minutes:
 
 ### Step 1: Vercel Configuration (`vercel.json`)
-The project includes a root [vercel.json](vercel.json) file preconfigured with the Vercel Cron schedule:
+The project uses the **Vercel Services** architecture with an Express backend service and Vite frontend service, alongside Vercel Cron:
 
 ```json
 {
-  "version": 2,
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "backend",
+      "framework": "express",
+      "entrypoint": "server.js"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite"
+    }
+  },
+  "rewrites": [
     {
-      "src": "backend/server.js",
-      "use": "@vercel/node"
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
     },
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
     }
-  ],
-  "routes": [
-    { "src": "/api/cron/(.*)", "dest": "backend/server.js" },
-    { "src": "/api/(.*)", "dest": "backend/server.js" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "frontend/$1" }
   ],
   "crons": [
     {
