@@ -205,17 +205,28 @@ export default function AdminDashboard() {
     loadBlogs();
   }, []);
 
-  // Periodically refresh blog list so newly auto-published blogs appear automatically
+  // Periodically refresh blog list and trigger due posts when viewing dashboard
   useEffect(() => {
-    const autoRefreshInterval = setInterval(() => {
-      // Background silent refresh
-      fetchAdminBlogs()
-        .then((data) => {
-          if (Array.isArray(data)) setBlogs(data);
-          else if (data && Array.isArray(data.blogs)) setBlogs(data.blogs);
-        })
-        .catch(() => {});
-    }, 15000); // 15 seconds
+    const autoRefreshInterval = setInterval(async () => {
+      try {
+        const data = await fetchAdminBlogs();
+        const list = Array.isArray(data) ? data : (data && Array.isArray(data.blogs) ? data.blogs : []);
+        setBlogs(list);
+
+        // Active trigger: if any post's scheduledAt is due (<= now), trigger publishing immediately
+        const hasDuePost = list.some(
+          (b) => b.status === 'Scheduled' && b.scheduledAt && new Date(b.scheduledAt).getTime() <= Date.now()
+        );
+        if (hasDuePost) {
+          await triggerCronPublish();
+          const refreshed = await fetchAdminBlogs();
+          if (Array.isArray(refreshed)) setBlogs(refreshed);
+          else if (refreshed && Array.isArray(refreshed.blogs)) setBlogs(refreshed.blogs);
+        }
+      } catch (err) {
+        // Silent background refresh
+      }
+    }, 8000); // 8 seconds
     return () => clearInterval(autoRefreshInterval);
   }, []);
 

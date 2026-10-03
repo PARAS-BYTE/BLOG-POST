@@ -60,6 +60,21 @@ const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+    // Automated background publisher for local development & Docker environments
+    // (In Vercel serverless, process.env.VERCEL is set, so Vercel Cron/external trigger handles production)
+    if (!process.env.VERCEL) {
+        const { processScheduledPosts } = require('./services/schedulerService');
+        const LOCAL_POLL_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
+        setInterval(async () => {
+            try {
+                await processScheduledPosts({ batchLimit: 50 });
+            } catch (err) {
+                console.error('[AutoPublisher] Error during local check:', err.message);
+            }
+        }, LOCAL_POLL_INTERVAL_MS);
+        console.log('[AutoPublisher] Local automated publisher active (checking MongoDB every 10s)');
+    }
 }
 
 module.exports = app;
