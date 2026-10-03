@@ -39,6 +39,10 @@ const blogSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+    processingStartedAt: {
+        type: Date,
+        default: null
+    },
     failureReason: {
         type: String,
         default: ''

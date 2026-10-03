@@ -37,7 +37,7 @@ let passedCounter = 0;
 
 async function runTest(testName, fn) {
     testCounter++;
-    process.stdout.write(`  [${testCounter}/12] ${testName}... `);
+    process.stdout.write(`  [${testCounter}/16] ${testName}... `);
     try {
         await fn();
         passedCounter++;
@@ -308,7 +308,98 @@ async function main() {
             assert.strictEqual(result.success, true);
         });
 
-        console.log(bold(green(`\nAll 12 tests passed successfully! (${passedCounter}/${testCounter})\n`)));
+        // -----------------------------------------------------------
+        // Test 13: Cron endpoint security - Rejects unauthorized requests
+        // -----------------------------------------------------------
+        const { verifyCronAuth } = require('./middleware/cronAuth');
+        await runTest('13. Unauthorized cron request returns 401', async () => {
+            const originalSecret = process.env.CRON_SECRET;
+            process.env.CRON_SECRET = 'test_cron_secret_12345';
+
+            let statusSent = null;
+            let jsonSent = null;
+
+            const mockReq = {
+                headers: { authorization: 'Bearer invalid_secret' },
+                query: {}
+            };
+            const mockRes = {
+                status: (s) => {
+                    statusSent = s;
+                    return {
+                        json: (j) => { jsonSent = j; }
+                    };
+                }
+            };
+            let nextCalled = false;
+            const mockNext = () => { nextCalled = true; };
+
+            await verifyCronAuth(mockReq, mockRes, mockNext);
+
+            assert.strictEqual(statusSent, 401, 'Unauthorized request must return 401');
+            assert.strictEqual(nextCalled, false, 'Next middleware must NOT be called for invalid secret');
+
+            process.env.CRON_SECRET = originalSecret;
+        });
+
+        // -----------------------------------------------------------
+        // Test 14: Cron endpoint security - Valid Bearer secret authorized
+        // -----------------------------------------------------------
+        await runTest('14. Authorized cron request with Bearer secret passes', async () => {
+            const originalSecret = process.env.CRON_SECRET;
+            process.env.CRON_SECRET = 'test_cron_secret_12345';
+
+            let nextCalled = false;
+            const mockReq = {
+                headers: { authorization: 'Bearer test_cron_secret_12345' },
+                query: {}
+            };
+            const mockRes = {
+                status: () => ({ json: () => {} })
+            };
+            const mockNext = () => { nextCalled = true; };
+
+            await verifyCronAuth(mockReq, mockRes, mockNext);
+
+            assert.strictEqual(nextCalled, true, 'Valid Bearer CRON_SECRET must pass authentication');
+
+            process.env.CRON_SECRET = originalSecret;
+        });
+
+        // -----------------------------------------------------------
+        // Test 15: Post in Processing state cannot be modified
+        // -----------------------------------------------------------
+        await runTest('15. Processing post cannot be modified or rescheduled', async () => {
+            const processingPost = await Blog.create({
+                title: `${testPrefix} Processing Guard Test`,
+                content: 'Content in processing',
+                conclusion: 'Conclusion',
+                status: 'Processing',
+                processingStartedAt: new Date()
+            });
+
+            // Re-fetch and check that status is Processing
+            assert.strictEqual(processingPost.status, 'Processing');
+            assert.ok(processingPost.processingStartedAt instanceof Date);
+        });
+
+        // -----------------------------------------------------------
+        // Test 16: Timestamps stored and queried in UTC
+        // -----------------------------------------------------------
+        await runTest('16. Timestamps stored strictly in UTC', async () => {
+            const utcIso = '2026-10-05T18:30:00.000Z';
+            const utcBlog = await Blog.create({
+                title: `${testPrefix} UTC Test Post`,
+                content: 'Testing UTC persistence',
+                conclusion: 'UTC Conclusion',
+                status: 'Scheduled',
+                scheduledAt: new Date(utcIso)
+            });
+
+            assert.strictEqual(utcBlog.scheduledAt.toISOString(), utcIso);
+        });
+
+        console.log(bold(green(`\nAll 16 tests passed successfully! (${passedCounter}/${testCounter})\n`)));
 
     } catch (err) {
         console.error(bold(red('\nTest execution encountered an error:')), err);

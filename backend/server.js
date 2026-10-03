@@ -57,22 +57,9 @@ if (staticPath) {
 }
 
 const PORT = process.env.PORT || 5000;
-const { processScheduledPosts } = require('./services/schedulerService');
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-    // Automated background scheduler for local dev, Docker, and standalone server environments.
-    // Publishes due scheduled posts automatically with ZERO manual intervention.
-    const SCHEDULER_INTERVAL_MS = 30 * 1000; // Check every 30 seconds
-    setInterval(async () => {
-        try {
-            await processScheduledPosts({ batchLimit: 50 });
-        } catch (autoErr) {
-            console.error('[AutoScheduler] Error during automatic tick:', autoErr.message);
-        }
-    }, SCHEDULER_INTERVAL_MS);
-    console.log('[AutoScheduler] Automated background publisher started (checking every 30s)');
 }
 
 module.exports = app;

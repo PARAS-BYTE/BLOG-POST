@@ -23,12 +23,36 @@ async function processScheduledPosts(options = {}) {
 
     console.log(`[Scheduler] Invocation started at ${now.toISOString()}`);
 
+    // Inspect how many due posts currently exist in MongoDB
+    let postsFoundCount = 0;
+    try {
+        postsFoundCount = await Blog.countDocuments({
+            $or: [
+                {
+                    status: 'Scheduled',
+                    scheduledAt: { $lte: now }
+                },
+                {
+                    status: 'Processing',
+                    $or: [
+                        { processingStartedAt: { $lte: lockThreshold } },
+                        { claimedAt: { $lte: lockThreshold } }
+                    ]
+                }
+            ]
+        });
+    } catch (countErr) {
+        console.warn('[Scheduler] Could not pre-count due posts:', countErr.message);
+    }
+
+    console.log(`[Scheduler] Found ${postsFoundCount} due/recoverable post(s) in queue.`);
+
     const claimedPosts = [];
 
     // Atomically claim eligible posts one-by-one up to batchLimit
     // An eligible post is either:
     // (a) status === 'Scheduled' and scheduledAt <= now
-    // (b) status === 'Processing' and claimedAt <= lockThreshold (stale/crashed worker recovery)
+    // (b) status === 'Processing' and processingStartedAt/claimedAt <= lockThreshold (stale/crashed worker recovery)
     for (let i = 0; i < batchLimit; i++) {
         try {
             const claimed = await Blog.findOneAndUpdate(
@@ -40,14 +64,18 @@ async function processScheduledPosts(options = {}) {
                         },
                         {
                             status: 'Processing',
-                            claimedAt: { $lte: lockThreshold }
+                            $or: [
+                                { processingStartedAt: { $lte: lockThreshold } },
+                                { claimedAt: { $lte: lockThreshold } }
+                            ]
                         }
                     ]
                 },
                 {
                     $set: {
                         status: 'Processing',
-                        claimedAt: now
+                        claimedAt: now,
+                        processingStartedAt: now
                     }
                 },
                 {
@@ -89,7 +117,8 @@ async function processScheduledPosts(options = {}) {
                     failureReason: ''
                 },
                 $unset: {
-                    claimedAt: 1
+                    claimedAt: 1,
+                    processingStartedAt: 1
                 }
             });
 
@@ -113,7 +142,8 @@ async function processScheduledPosts(options = {}) {
                     failureReason: errorMessage
                 },
                 $unset: {
-                    claimedAt: 1
+                    claimedAt: 1,
+                    processingStartedAt: 1
                 }
             });
 
@@ -127,11 +157,12 @@ async function processScheduledPosts(options = {}) {
     }
 
     const durationMs = Date.now() - startTime;
-    console.log(`[Scheduler] Invocation finished in ${durationMs}ms: claimed=${claimedPosts.length}, published=${publishedCount}, failed=${failedCount}`);
+    console.log(`[Scheduler] Invocation finished in ${durationMs}ms: found=${postsFoundCount}, claimed=${claimedPosts.length}, published=${publishedCount}, failed=${failedCount}`);
 
     return {
         success: true,
         timestamp: now.toISOString(),
+        postsFound: postsFoundCount,
         claimedCount: claimedPosts.length,
         publishedCount,
         failedCount,

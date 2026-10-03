@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/publish-scheduled-posts",
+      "schedule": "* * * * *"
+    }
+  ],
   "services": {
     "backend": {
       "root": "backend",
@@ -23,12 +29,6 @@
       "destination": {
         "service": "frontend"
       }
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/publish-scheduled-posts",
-      "schedule": "* * * * *"
     }
   ]
 }

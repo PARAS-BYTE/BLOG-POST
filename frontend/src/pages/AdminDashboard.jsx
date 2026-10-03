@@ -9,7 +9,9 @@ import {
   cancelScheduledBlog,
   fetchAdmins,
   adminRegister,
-  deleteAdminAccount
+  deleteAdminAccount,
+  triggerCronPublish,
+  fetchQueueStatus
 } from '../services/api';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
@@ -39,7 +41,9 @@ import {
   Shield,
   Crown,
   LogOut,
-  UserPlus
+  UserPlus,
+  Play,
+  RefreshCw
 } from 'lucide-react';
 
 /**
@@ -132,6 +136,26 @@ export default function AdminDashboard() {
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 4000);
+  };
+
+  // State for manual scheduler invocation
+  const [isTriggeringCron, setIsTriggeringCron] = useState(false);
+
+  // Manual Trigger for Scheduler (Development & Testing)
+  const handleManualCronTrigger = async () => {
+    try {
+      setIsTriggeringCron(true);
+      const res = await triggerCronPublish();
+      showToast(
+        `Scheduler Executed: ${res.publishedCount || 0} published, ${res.failedCount || 0} failed (${res.durationMs || 0}ms)`
+      );
+      await loadBlogs();
+    } catch (err) {
+      console.error('Manual cron trigger error:', err);
+      showToast(err.response?.data?.message || 'Failed to trigger cron scheduler.');
+    } finally {
+      setIsTriggeringCron(false);
+    }
   };
 
   // Safe blog array extractor to guarantee .filter and .length are always valid
@@ -550,6 +574,26 @@ export default function AdminDashboard() {
               <Users className="w-3.5 h-3.5 text-indigo-600" /> Manage Admins
             </button>
           )}
+
+          {/* Manual Scheduler Trigger Button for Instant Testing */}
+          <button
+            onClick={handleManualCronTrigger}
+            disabled={isTriggeringCron}
+            title="Manually execute cron publisher now to test scheduled posts immediately without waiting for Vercel Cron"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2 rounded-lg transition shadow-2xs cursor-pointer disabled:opacity-50"
+          >
+            {isTriggeringCron ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                <span>Running...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 text-indigo-600 fill-indigo-600" />
+                <span>Run Scheduler Now</span>
+              </>
+            )}
+          </button>
 
           <Link
             to="/"

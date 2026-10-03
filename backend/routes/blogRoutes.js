@@ -208,6 +208,10 @@ router.post('/:id/schedule', protect, async (req, res) => {
             return res.status(404).json({ message: 'Blog not found' });
         }
 
+        if (blog.status === 'Processing') {
+            return res.status(409).json({ message: 'Post is currently being processed and cannot be scheduled.' });
+        }
+
         if (blog.status === 'Published') {
             return res.status(400).json({ message: 'This post is already published.' });
         }
@@ -216,6 +220,7 @@ router.post('/:id/schedule', protect, async (req, res) => {
         blog.scheduledAt = scheduledDate;
         blog.failureReason = '';
         blog.claimedAt = null;
+        blog.processingStartedAt = null;
 
         const updatedBlog = await blog.save();
         console.log(`[BlogRoutes] Blog "${blog.title}" scheduled for ${scheduledDate.toISOString()}`);
@@ -234,6 +239,10 @@ router.post('/:id/cancel-schedule', protect, async (req, res) => {
             return res.status(404).json({ message: 'Blog not found' });
         }
 
+        if (blog.status === 'Processing') {
+            return res.status(409).json({ message: 'Post is currently being processed and cannot be cancelled.' });
+        }
+
         if (blog.status === 'Published') {
             return res.status(400).json({ message: 'Cannot cancel schedule for an already published post.' });
         }
@@ -242,6 +251,7 @@ router.post('/:id/cancel-schedule', protect, async (req, res) => {
         blog.scheduledAt = null;
         blog.failureReason = '';
         blog.claimedAt = null;
+        blog.processingStartedAt = null;
 
         const updatedBlog = await blog.save();
         console.log(`[BlogRoutes] Schedule cancelled for "${blog.title}". Reverted to Draft.`);
@@ -315,6 +325,10 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(404).json({ message: 'Blog not found' });
         }
 
+        if (blog.status === 'Processing') {
+            return res.status(409).json({ message: 'Post is currently being processed and cannot be edited.' });
+        }
+
         if (title !== undefined) blog.title = title.trim();
         if (content !== undefined) blog.content = content.trim();
         if (imageUrl !== undefined) blog.imageUrl = imageUrl.trim();
@@ -336,9 +350,13 @@ router.put('/:id', protect, async (req, res) => {
                 }
                 blog.scheduledAt = null;
                 blog.failureReason = '';
+                blog.claimedAt = null;
+                blog.processingStartedAt = null;
             } else if (status === 'Draft') {
                 blog.scheduledAt = null;
                 blog.failureReason = '';
+                blog.claimedAt = null;
+                blog.processingStartedAt = null;
             }
         }
 
