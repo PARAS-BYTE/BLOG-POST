@@ -1,6 +1,6 @@
-# UTSANOVA Blog Management System
+# UTSANOVA Blog Management & Scheduled Publishing Platform
 
-> An enterprise-grade, responsive, full-stack Blog Management Platform featuring a public editorial reading portal, a secured admin dashboard, rich Markdown rendering with GitHub Flavored Markdown (GFM), an AI blog drafting assistant powered by Groq LLM, and single-container multi-stage Docker deployment for cloud hosts like Render.
+> An enterprise-grade, responsive, full-stack Blog Management Platform featuring a public editorial reading portal, an administrative dashboard, rich Markdown rendering with GitHub Flavored Markdown (GFM), Groq AI drafting assistant, and an **Automated Serverless Scheduled Blog-Post Publishing System** built with **Vercel Cron** and **MongoDB Atomic Claim Protection**.
 
 Developed for **UTSANOVA TECHNOLOGIES PVT. LTD.**  
 Website: [www.about.utsanova.com](https://about.utsanova.com) | Email: [hr@utsanova.com](mailto:hr@utsanova.com)
@@ -9,577 +9,616 @@ Website: [www.about.utsanova.com](https://about.utsanova.com) | Email: [hr@utsan
 
 ## 📑 Table of Contents
 - [Architecture & System Overview](#-architecture--system-overview)
-- [Technology Stack & Core Libraries](#-technology-stack--core-libraries)
-- [Key Features](#-key-features)
-- [Single-Container Docker Deployment (Render)](#-single-container-docker-deployment-render)
+- [Scheduled Publishing System Architecture](#-scheduled-publishing-system-architecture)
+- [Why Vercel Cron Instead of `node-cron`?](#-why-vercel-cron-instead-of-node-cron)
+- [Atomic Claim & Duplicate Publishing Protection](#-atomic-claim--duplicate-publishing-protection)
+- [Timezone Handling & Accuracy](#-timezone-handling--accuracy)
+- [Database Schema & Indexing](#-database-schema--indexing)
 - [Complete API Documentation](#-complete-api-documentation)
-- [Database Schema](#-database-schema)
+  - [Scheduling & Cron APIs](#scheduling--cron-apis)
+  - [Blog Management APIs](#blog-management-apis)
+  - [Authentication APIs](#authentication-apis)
+- [Frontend User Guide](#-frontend-user-guide)
+- [Vercel Deployment Guide (Step-by-Step)](#-vercel-deployment-guide-step-by-step)
+- [Docker Single-Container Deployment](#-docker-single-container-deployment)
 - [Local Development Setup](#-local-development-setup)
-- [Environment Variables](#-environment-variables)
-- [Project Directory Structure](#-project-directory-structure)
+- [Environment Variables Guide](#-environment-variables-guide)
+- [Automated Testing Strategy & Test Suite](#-automated-testing-strategy--test-suite)
 - [Troubleshooting & Gotchas](#-troubleshooting--gotchas)
 
 ---
 
 ## 🌟 Architecture & System Overview
 
-The UTSANOVA Blog Platform is engineered as a **unified single-container service** that unifies the React Single Page Application (SPA) and the Express REST API under a single port and domain.
+The application unifies a **React + Vite** Single Page Application (SPA) frontend with a **Node.js / Express** backend, backed by **MongoDB Atlas** as the single source of truth.
 
 ```mermaid
 graph TD
-    User([Client / Web Browser]) -->|All HTTP Requests| RenderApp[Render Web Service: Single Docker Container]
-    
-    subgraph Docker Container [Port 5000 / Express 5 Runner]
-        RenderApp -->|/api/*| APIHandler[Express REST API Endpoints]
-        RenderApp -->|/* Non-API Routes| StaticSPA[Static SPA Middleware + index.html Fallback]
-        
-        APIHandler --> AuthMW[JWT Auth Middleware]
-        AuthMW --> BlogRoutes[Blog CRUD & Filters]
-        AuthMW --> AIRoutes[AI Generation Engine]
+    subgraph ClientLayer [Client & Authoring Layer]
+        Reader([Public Reader]) -->|View Articles / Search| Frontend[React 19 + Tailwind UI]
+        Admin([Editorial Admin]) -->|Draft, Schedule, Publish| Frontend
     end
 
-    BlogRoutes --> Atlas[(MongoDB Atlas Cloud Cluster)]
-    AIRoutes --> GroqAPI[Groq Cloud LLM API: Llama-3.3-70b]
+    subgraph APILayer [Express 5 API / Vercel Serverless]
+        Frontend -->|REST Requests + JWT| ExpressServer[Express API Runner]
+        ExpressServer --> AuthMW[JWT Auth Middleware]
+        ExpressServer --> BlogRoutes[Blog & Schedule Routes]
+        ExpressServer --> AIRoutes[Groq Cloud LLM Generator]
+    end
+
+    subgraph CronLayer [Vercel Cloud Scheduler]
+        VercelCron[Vercel Cron Runner: Every Minute] -->|Bearer CRON_SECRET| CronEndpoint[/api/cron/publish-scheduled-posts]
+        CronEndpoint --> CronMW[Cron Authorization Guard]
+        CronMW --> SchedulerService[Scheduler Service: Atomic Claim Engine]
+    end
+
+    subgraph StorageLayer [Database Layer]
+        BlogRoutes --> Atlas[(MongoDB Atlas Cloud Cluster)]
+        SchedulerService -->|Atomic findOneAndUpdate| Atlas
+    end
 ```
 
-### Why Single-Container Architecture?
-- **Cost & Quota Efficiency**: Uses only **1 free Web Service** instance on Render instead of splitting frontend and backend across multiple services.
-- **Zero CORS Issues**: Because both the UI assets and `/api` requests originate from the same domain and port, cross-origin resource sharing restrictions are bypassed naturally.
-- **Atomic Deployments**: Every `git push` automatically rebuilds both frontend and backend synchronously, eliminating version mismatch bugs.
-
 ---
 
-## 🛠️ Technology Stack & Core Libraries
+## ⏰ Scheduled Publishing System Architecture
 
-### Frontend
-| Library / Tool | Version | Purpose |
-| :--- | :--- | :--- |
-| **React** | `^19.2.8` | Core UI library using functional components and modern React hooks (`useState`, `useEffect`, `useMemo`). |
-| **Vite** | `^8.3.1` | Ultra-fast build tool and bundler for modern web applications. |
-| **React Router DOM** | `^7.18.4` | Client-side declarative routing, URL state management, and parameter extraction (`useParams`, `useNavigate`). |
-| **Tailwind CSS** | `^4.3.3` | Utility-first styling framework with modern color palettes, CSS variables, and responsive design tokens. |
-| **Axios** | `^1.20.0` | Promise-based HTTP client equipped with an automatic request interceptor that injects Bearer JWT authentication tokens. |
-| **react-markdown** | `^10.1.0` | Renders Markdown directly as semantic HTML elements. |
-| **remark-gfm** | `^4.0.1` | Adds support for GitHub Flavored Markdown (tables, checklists, strikethrough, autolinks). |
-| **lucide-react** | `^1.48.0` | Modern, lightweight icon suite for all interactive UI elements. |
+The blog scheduling architecture guarantees that future posts are automatically published when their scheduled time arrives, with zero dependency on permanently running background daemon processes.
 
-### Backend
-| Library / Tool | Version | Purpose |
-| :--- | :--- | :--- |
-| **Node.js** | `v20+ / v24` | JavaScript runtime environment. |
-| **Express** | `^5.2.1` | Fast, unopinionated web framework handling REST endpoints and static file serving. |
-| **Mongoose** | `^9.10.2` | Elegant Object Data Modeling (ODM) for MongoDB with schemas, validation, and indexing. |
-| **jsonwebtoken** | `^9.0.3` | Generates and verifies cryptographically signed JWT tokens for secure admin session authorization. |
-| **bcryptjs** | `^3.0.3` | One-way salted cryptographic hashing for administrator passwords. |
-| **groq-sdk** | `^1.6.0` | Official client for Groq Cloud API, delivering sub-second LLM inference for blog drafting. |
-| **cors** | `^2.8.6` | Configurable Cross-Origin Resource Sharing middleware. |
-| **dotenv** | `^18.0.3` | Zero-dependency module that loads environment variables from `.env`. |
+### Workflow Lifecycle:
 
----
-
-## ✨ Key Features
-
-### 1. Public Reader Portal
-- **Hero & Brand Banner**: UTSANOVA editorial branding with clean typography and gradient styling.
-- **Real-Time Live Search**: Instantly searches blog titles, descriptions, content keywords, and tags.
-- **Dynamic Tag Filtering**: Click any category pill to filter the feed dynamically.
-- **Rich Article Reader**: High-resolution cover images, reading time estimate, publication metadata, and dedicated **Conclusion & Key Takeaways** banner.
-- **Full Markdown Rendering**: Clean formatting of headers, bullet points, blockquotes, tables, code snippets, and checklists.
-
-### 2. Admin Dashboard & CMS
-- **Real-Time Statistics**: Live counter cards for **Total Articles**, **Published Articles**, and **Draft Articles**.
-- **Article Lifecycle Management**: Quick toggling between `Draft` and `Published` directly from the list table.
-- **Full CRUD Support**: Add new articles, edit existing ones with live preview, or delete articles with modal confirmation guards.
-- **Cover Image Selector**: Custom image URL input with automatic fallback dummy covers and instant preview.
-
-### 3. AI Blog Generation Engine
-- **Powered by Groq Cloud**: Uses ultra-fast inference with `llama-3.3-70b-versatile`.
-- **Topic-to-Article Generation**: Enter any topic (e.g., *"Event-Driven Microservices in Kubernetes"*).
-- **Comprehensive Auto-Generation**: Automatically drafts:
-  - An SEO-friendly Title
-  - Full structured Markdown Body
-  - Curated category Tags
-  - An executive Conclusion & Takeaways summary
-  - Curated high-resolution Unsplash cover image
-- **Human-in-the-Loop**: Generated drafts populate the editing modal so administrators can review, modify, or enhance the content before publishing.
-
----
-
-## 🐳 Single-Container Docker Deployment (Render)
-
-The project includes a production-ready **Multi-Stage Dockerfile** located at the root of the repository.
-
-### Dockerfile Breakdown
-
-```dockerfile
-# Stage 1: Build Frontend (Vite + React)
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
-
-# Stage 2: Production Server (Express + Static Assets)
-FROM node:20-alpine AS runner
-WORKDIR /app
-COPY backend/package*.json ./
-RUN npm ci --omit=dev
-COPY backend/ ./
-
-# Copy compiled React frontend assets into backend/public
-COPY --from=frontend-builder /app/frontend/dist ./public
-
-ENV NODE_ENV=production
-ENV PORT=5000
-EXPOSE 5000
-
-CMD ["node", "server.js"]
+```
+[ User selects future date/time ]
+             ↓
+[ Frontend converts local time to UTC ISO 8601 ]
+             ↓
+[ POST /api/blogs/:id/schedule ]
+             ↓
+[ Validation: Must be in future (> now) ]
+             ↓
+[ MongoDB: status = "Scheduled", scheduledAt = UTC Date ]
+             ↓
+[ Automated Ticker / Vercel Cron fires automatically ]
+             ↓
+[ Atomic Claim: status transitions "Scheduled" → "Processing" ]
+             ↓
+[ Publishing Step: Set status = "Published", publishedAt = now ]
+             ↓
+[ Post immediately appears in public reader feed with ZERO human intervention ]
 ```
 
-### How Express 5 Handles Client-Side Routing
-Because React Router handles routing on the client side, requesting `/admin`, `/blog/123`, or refreshing any non-root page must return `index.html`. In [backend/server.js](backend/server.js), Express 5 is configured with:
+---
+
+## 👑 Role-Based Access Control: SuperAdmin vs. Admin
+
+The system enforces a strict two-tier authorization model:
+
+| Capability | 👑 SuperAdmin | 🛡️ Regular Admin | Public Reader |
+| :--- | :---: | :---: | :---: |
+| **View Live Published Articles** | ✅ | ✅ | ✅ |
+| **Create, Edit & Delete Blog Posts** | ✅ | ✅ | ❌ |
+| **Schedule Future Blog Posts** | ✅ | ✅ | ❌ |
+| **Cancel Scheduled Releases** | ✅ | ✅ | ❌ |
+| **Use AI Blog Generator (Groq)** | ✅ | ✅ | ❌ |
+| **Create New Administrator Accounts** | ✅ *(Exclusive)* | ❌ *(Forbidden)* | ❌ |
+| **View & Delete Team Admin Accounts** | ✅ *(Exclusive)* | ❌ *(Forbidden)* | ❌ |
+
+### Default Credentials (Seeded):
+- **👑 SuperAdmin**:
+  - **Email**: `superadmin@utsanova.com`
+  - **Password**: `superadmin@1234`
+  - *Has exclusive rights to manage the admin team via the "Manage Admins" dashboard modal.*
+- **🛡️ Regular Admin**:
+  - **Email**: `admin@utsanova.com`
+  - **Password**: `admin@1234`
+  - *Has full editorial rights to create, draft, schedule, and publish articles.*
+
+---
+
+## ⚡ Zero Human Intervention: Automated Publishing Workflow
+
+Once a post is scheduled, **no human clicking or manual triggers are required**:
+
+1. **In Vercel Production**: Vercel Cron automatically triggers `/api/cron/publish-scheduled-posts` every minute via cloud cron.
+2. **In Local Development & Docker**: A lightweight internal ticker in `server.js` checks for due posts every 30 seconds.
+3. The moment a post's `scheduledAt` timestamp is reached, the atomic engine claims the post and updates its status to **Published**.
+4. The dashboard automatically detects and reflects newly published posts via periodic silent polling.
+
+
+---
+
+## 🚫 Why Vercel Cron Instead of `node-cron`?
+
+A common pitfall in serverless hosting platforms like Vercel is using `node-cron` or `setInterval()`.
+
+| Feature | `node-cron` (In-Memory) | Vercel Cron + Atomic MongoDB |
+| :--- | :--- | :--- |
+| **Serverless Compatibility** | ❌ **Fails completely**. Serverless lambdas freeze or terminate after fulfilling an HTTP request. In-memory timers pause and never fire. | ✅ **Native cloud execution**. Vercel triggers the HTTP endpoint reliably from the cloud. |
+| **Multi-Instance / Cluster Safety** | ❌ If two instances run, both fire duplicate timers causing double publishing. | ✅ Protected by atomic database claim (`findOneAndUpdate`). |
+| **Cold Starts & Restarts** | ❌ All scheduled memory state is lost on container restart. | ✅ MongoDB persists all state; zero data loss. |
+| **Monitoring & Logs** | ❌ Opaque server memory logs. | ✅ Full execution summary with duration, claimed count, and audit trails. |
+
+---
+
+## 🛡️ Atomic Claim & Duplicate Publishing Protection
+
+In serverless architectures, cron triggers can occasionally retry, or multiple serverless execution environments may overlap. If two executions process the same scheduled post simultaneously, a race condition could publish the article twice.
+
+### The Solution: MongoDB Atomic State Claiming
+
+We implement a three-state transition:
+
+$$\text{Scheduled} \xrightarrow[\text{Atomic Claim}]{\text{Worker A}} \text{Processing} \xrightarrow[\text{Publish Success}]{\text{Worker A}} \text{Published}$$
+
+1. **Atomic Claim Operation**:
+   Instead of querying with `find()` and then updating, the scheduler uses `findOneAndUpdate`:
+   ```javascript
+   const post = await Blog.findOneAndUpdate(
+       {
+           $or: [
+               { status: 'Scheduled', scheduledAt: { $lte: now } },
+               { status: 'Processing', claimedAt: { $lte: lockThreshold } } // Stale recovery
+           ]
+       },
+       {
+           $set: {
+               status: 'Processing',
+               claimedAt: now
+           }
+       },
+       { returnDocument: 'after' }
+   );
+   ```
+2. **Exclusivity**: Only one worker can claim a post. Concurrent workers get `null` for that post and move to the next item or exit cleanly.
+3. **Stuck Job Recovery (Deadlock Prevention)**: If a serverless function crashes mid-execution, any post remaining in `'Processing'` for longer than 5 minutes (`lockThreshold`) is automatically reclaimed and reprocessed on the next cron cycle.
+4. **Fault Isolation**: If a post is missing required content or encounters an error, it transitions to `'Failed'` with the error recorded in `failureReason`. Other due posts in the queue continue processing unaffected.
+
+---
+
+## 🌐 Timezone Handling & Accuracy
+
+To eliminate bugs caused by differing local timezones:
+
+1. **Client Input**: The author picks their local date & time using standard HTML5 datetime picker.
+2. **UTC Conversion on Frontend**: The frontend converts the local time selection to a UTC ISO 8601 string (`new Date(localValue).toISOString()`) before sending to the backend.
+3. **Database Storage**: MongoDB stores all timestamps (`scheduledAt`, `publishedAt`, `createdAt`) as native UTC Date objects.
+4. **Display**: The frontend renders dates back in the viewer's local timezone (e.g. `Oct 5, 2026, 6:30 PM (IST)`), along with timezone indicators.
+
+---
+
+## 🗄️ Database Schema & Indexing
+
+The `Blog` model ([backend/models/Blog.js](backend/models/Blog.js)) is extended with scheduling fields and an index for scheduler queries:
 
 ```javascript
-// Static frontend serving
-const publicDistPath = path.join(__dirname, 'public');
-const localDistPath = path.join(__dirname, '../frontend/dist');
-const staticPath = fs.existsSync(publicDistPath) ? publicDistPath : (fs.existsSync(localDistPath) ? localDistPath : null);
+const blogSchema = new mongoose.Schema({
+    title: { type: String, required: true, trim: true },
+    content: { type: String, required: true },
+    imageUrl: { type: String, default: '' },
+    tags: { type: [String], default: [] },
+    conclusion: { type: String, required: true },
+    status: {
+        type: String,
+        enum: ['Draft', 'Scheduled', 'Processing', 'Published', 'Failed'],
+        default: 'Draft'
+    },
+    scheduledAt: { type: Date, default: null },
+    publishedAt: { type: Date, default: null },
+    claimedAt: { type: Date, default: null },
+    failureReason: { type: String, default: '' }
+}, {
+    timestamps: true
+});
 
-if (staticPath) {
-    app.use(express.static(staticPath));
-    // SPA catch-all (Express 5 compatible)
-    app.use((req, res, next) => {
-        if (req.method === 'GET' && !req.path.startsWith('/api')) {
-            return res.sendFile(path.join(staticPath, 'index.html'));
-        }
-        next();
-    });
-}
+// High-performance compound index for the Vercel Cron query
+blogSchema.index({ status: 1, scheduledAt: 1 });
 ```
 
----
-
-### Step-by-Step Render Deployment Guide
-
-#### Step 1: Configure MongoDB Atlas Network Access
-1. Open [MongoDB Atlas Dashboard](https://cloud.mongodb.com/).
-2. Navigate to **Network Access** in the left sidebar.
-3. Click **Add IP Address** -> Select **Allow Access from Anywhere** (`0.0.0.0/0`) -> Click **Confirm**.  
-   *(Required so Render's dynamic cloud container IPs can connect).*
-
-#### Step 2: Push Your Code to GitHub
-Ensure all files are committed and pushed:
-```bash
-git add .
-git commit -m "feat: complete docker containerization and atlas setup"
-git push origin main
+### Why this index?
+The cron query targets:
+```javascript
+{ status: 'Scheduled', scheduledAt: { $lte: new Date() } }
 ```
-
-#### Step 3: Create Web Service on Render
-1. Log in to [Render Dashboard](https://dashboard.render.com).
-2. Click **New +** -> **Web Service**.
-3. Choose **Build and deploy from a Git repository** and connect your `BLOG-POST` repository.
-4. Fill in the service configuration:
-   - **Name**: `utsanova-blog`
-   - **Region**: Any (e.g. *Singapore*, *Frankfurt*, or *Oregon*)
-   - **Branch**: `main`
-   - **Root Directory**: Leave blank (root `./`)
-   - **Runtime**: **Docker** *(Render detects the root `Dockerfile` automatically)*
-   - **Instance Type**: **Free**
-
-#### Step 4: Add Environment Variables
-Scroll to **Environment Variables** and enter:
-
-| Key | Value | Description |
-| :--- | :--- | :--- |
-| `PORT` | `5000` | Port Express listens on inside the container |
-| `MONGO_URI` | `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/utsanova_blog?retryWrites=true&w=majority&appName=Cluster0` | MongoDB Atlas Connection String |
-| `JWT_SECRET` | `your_strong_random_jwt_secret_key` | Secret key for signing JWT tokens |
-| `GROQ_API_KEY` | `gsk_...` | Groq API Key for AI blog generation |
-
-#### Step 5: Deploy
-Click **Create Web Service**. Render will execute the multi-stage build, compile the React UI, launch Node.js, and provide your public HTTPS URL (e.g. `https://utsanova-blog.onrender.com`).
+The compound index `{ status: 1, scheduledAt: 1 }` allows MongoDB to execute this query in under **1 millisecond** without a collection scan.
 
 ---
 
 ## 📡 Complete API Documentation
 
-### Base URL
-- **Local Development**: `http://localhost:5000/api`
-- **Render Production**: `https://<your-render-subdomain>.onrender.com/api`
+### Scheduling & Cron APIs
 
----
+#### 1. Schedule a Post
+Schedule an existing Draft or update a Scheduled post with a future publishing timestamp.
 
-### 1. System Health Check
-Check whether the API is live and accessible.
-
-- **URL**: `/api/health`
-- **Method**: `GET`
-- **Auth Required**: No
-- **Success Response (200 OK)**:
-```json
-{
-  "status": "ok",
-  "message": "Utsanova Blog API is running..."
-}
-```
-
----
-
-### 2. Authentication Endpoints
-
-#### A. Admin Login
-Authenticate an administrator and receive a JWT token.
-
-- **URL**: `/api/auth/login`
+- **URL**: `/api/blogs/:id/schedule` *(alias: `/api/posts/:id/schedule`)*
 - **Method**: `POST`
-- **Auth Required**: No
+- **Auth Required**: Yes (`Bearer <admin_jwt_token>`)
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
-  "email": "admin@utsanova.com",
-  "password": "AdminSecurePassword123"
+  "scheduledAt": "2026-10-05T18:30:00.000Z"
 }
 ```
-- **Success Response (200 OK)**:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "admin": {
-    "id": "6740b2a0c841320ef49a1234",
-    "email": "admin@utsanova.com"
-  }
-}
-```
-- **Error Responses**:
-  - `400 Bad Request`: `{"message": "Please provide email and password"}`
-  - `401 Unauthorized`: `{"message": "Invalid email or password"}`
-
-#### B. Admin Registration
-Register a new administrator account.
-
-- **URL**: `/api/auth/register`
-- **Method**: `POST`
-- **Auth Required**: No
-- **Request Body**:
-```json
-{
-  "email": "newadmin@utsanova.com",
-  "password": "StrongPassword!456"
-}
-```
-- **Success Response (201 Created)**:
-```json
-{
-  "message": "Admin registered successfully",
-  "admin": {
-    "id": "6740b2a0c841320ef49a5678",
-    "email": "newadmin@utsanova.com"
-  }
-}
-```
-
----
-
-### 3. Public Blog Endpoints
-
-#### A. Fetch Published Blogs
-Retrieve all published blog posts with optional search, tag filtering, and pagination.
-
-- **URL**: `/api/blogs`
-- **Method**: `GET`
-- **Auth Required**: No
-- **Query Parameters**:
-  - `search` *(optional)*: Search string matching title, content, or tags.
-  - `tag` *(optional)*: Filter blogs matching a specific tag (e.g. `Cloud`, `React`, `AI`).
-  - `page` *(optional, default: 1)*: Page number.
-  - `limit` *(optional, default: 6)*: Number of articles per page.
-- **Success Response (200 OK)**:
-```json
-{
-  "blogs": [
-    {
-      "_id": "6740b2a0c841320ef49a0001",
-      "title": "Demystifying Microservices with Node.js & Docker",
-      "content": "Full article content in markdown format...",
-      "tags": ["Node.js", "Docker", "Architecture"],
-      "conclusion": "Microservices offer unmatched scalability when containerized properly.",
-      "imageUrl": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800",
-      "status": "published",
-      "createdAt": "2026-03-29T10:00:00.000Z",
-      "updatedAt": "2026-03-29T10:00:00.000Z"
-    }
-  ],
-  "total": 12,
-  "page": 1,
-  "pages": 2
-}
-```
-
-#### B. Fetch Single Blog by ID
-Retrieve full details of a specific blog post.
-
-- **URL**: `/api/blogs/:id`
-- **Method**: `GET`
-- **Auth Required**: No
+- **Validation**:
+  - `scheduledAt` must be a valid date.
+  - `scheduledAt` must be strictly in the future (`> new Date()`).
+  - Cannot schedule an already published article.
 - **Success Response (200 OK)**:
 ```json
 {
   "_id": "6740b2a0c841320ef49a0001",
-  "title": "Demystifying Microservices with Node.js & Docker",
-  "content": "# Heading\nDetailed markdown content...",
-  "tags": ["Node.js", "Docker"],
-  "conclusion": "Summary of key takeaways...",
-  "imageUrl": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800",
-  "status": "published",
-  "createdAt": "2026-03-29T10:00:00.000Z",
-  "updatedAt": "2026-03-29T10:00:00.000Z"
+  "title": "Scaling Distributed Systems",
+  "status": "Scheduled",
+  "scheduledAt": "2026-10-05T18:30:00.000Z",
+  "publishedAt": null,
+  "failureReason": ""
 }
 ```
-- **Error Response**:
-  - `404 Not Found`: `{"message": "Blog not found"}`
+- **Error Response (400 Bad Request)**:
+```json
+{
+  "message": "Scheduled publishing time must be in the future."
+}
+```
 
 ---
 
-### 4. Admin Management Endpoints (Protected)
+#### 2. Cancel Scheduling
+Revert a scheduled post back to Draft and clear its scheduled time.
 
-> All admin endpoints require the header:  
-> `Authorization: Bearer <your_jwt_token>`
+- **URL**: `/api/blogs/:id/cancel-schedule` *(alias: `/api/posts/:id/cancel-schedule`)*
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <admin_jwt_token>`)
+- **Success Response (200 OK)**:
+```json
+{
+  "_id": "6740b2a0c841320ef49a0001",
+  "title": "Scaling Distributed Systems",
+  "status": "Draft",
+  "scheduledAt": null,
+  "failureReason": ""
+}
+```
 
-#### A. Fetch All Blogs (Drafts + Published)
-- **URL**: `/api/blogs/admin/all`
-- **Method**: `GET`
-- **Headers**: `Authorization: Bearer <token>`
+---
+
+#### 3. Cron Publishing Trigger (Vercel Cron Endpoint)
+Processes all due scheduled posts, claims them atomically, and publishes them.
+
+- **URL**: `/api/cron/publish-scheduled-posts`
+- **Method**: `GET` (Vercel Cron standard) or `POST` (manual invocation)
+- **Auth Required**: Yes. Authenticate via either:
+  1. `Authorization: Bearer <CRON_SECRET>`
+  2. Header `x-cron-secret: <CRON_SECRET>`
+  3. Query parameter `?secret=<CRON_SECRET>`
+  4. Valid Admin JWT token (for dashboard manual testing)
 - **Query Parameters**:
-  - `search` *(optional)*: Search query.
-  - `status` *(optional)*: Filter by `published` or `draft`.
-- **Success Response (200 OK)**:
-```json
-[
-  {
-    "_id": "6740b2a0c841320ef49a0001",
-    "title": "Upcoming Product Features",
-    "status": "draft",
-    "tags": ["Internal", "Product"],
-    "createdAt": "2026-03-29T11:00:00.000Z"
-  }
-]
-```
-
-#### B. Create a Blog Post
-- **URL**: `/api/blogs`
-- **Method**: `POST`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Request Body**:
-```json
-{
-  "title": "Securing REST APIs with OAuth2 and JWT",
-  "content": "Full markdown body of the article...",
-  "tags": ["Security", "API", "JWT"],
-  "conclusion": "Always encrypt tokens and store secrets securely.",
-  "imageUrl": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800",
-  "status": "published"
-}
-```
-- **Success Response (201 Created)**: Returns the created Blog document.
-
-#### C. Update a Blog Post
-- **URL**: `/api/blogs/:id`
-- **Method**: `PUT`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Request Body**: Accepts any fields to update (`title`, `content`, `tags`, `conclusion`, `imageUrl`, `status`).
-- **Success Response (200 OK)**: Returns the updated Blog document.
-
-#### D. Delete a Blog Post
-- **URL**: `/api/blogs/:id`
-- **Method**: `DELETE`
-- **Headers**: `Authorization: Bearer <token>`
+  - `limit` *(optional, default: 50)*: Maximum posts to process per batch.
 - **Success Response (200 OK)**:
 ```json
 {
-  "message": "Blog deleted successfully"
-}
-```
-
-#### E. AI Blog Drafting Assistant (Groq Cloud)
-Generate a comprehensive, structured blog draft from a topic or outline.
-
-- **URL**: `/api/blogs/ai-generate`
-- **Method**: `POST`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Request Body**:
-```json
-{
-  "topic": "Event-Driven Architecture in Cloud Systems"
-}
-```
-- **Success Response (200 OK)**:
-```json
-{
-  "title": "Demystifying Event-Driven Architecture in Modern Cloud Systems",
-  "content": "## Introduction\nEvent-driven architecture decouples services...\n\n### Core Benefits\n- Scalability\n- Fault isolation...",
-  "tags": ["Cloud", "Architecture", "Microservices"],
-  "conclusion": "Adopting event-driven patterns empowers systems to scale independently with resilient message brokers.",
-  "imageUrl": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800"
+  "success": true,
+  "timestamp": "2026-10-03T10:30:00.000Z",
+  "claimedCount": 2,
+  "publishedCount": 2,
+  "failedCount": 0,
+  "durationMs": 182,
+  "details": [
+    {
+      "id": "6740b2a0c841320ef49a0001",
+      "title": "Scaling Distributed Systems",
+      "status": "Published",
+      "scheduledAt": "2026-10-03T10:29:00.000Z",
+      "publishedAt": "2026-10-03T10:30:00.180Z"
+    }
+  ]
 }
 ```
 
 ---
 
-## 🗄️ Database Schema
+#### 4. Queue Status & Monitoring
+Inspect the current state of the scheduling queue.
 
-### 1. `Admin` Model ([backend/models/Admin.js](backend/models/Admin.js))
-| Field | Type | Attributes | Description |
-| :--- | :--- | :--- | :--- |
-| `email` | String | Required, Unique, Lowercase, Trim | Admin login email |
-| `password` | String | Required | Salted bcrypt hash |
-| `createdAt` | Date | Default: `now` | Account creation timestamp |
+- **URL**: `/api/cron/queue-status`
+- **Method**: `GET`
+- **Auth Required**: Yes (`CRON_SECRET` or Admin JWT)
+- **Success Response (200 OK)**:
+```json
+{
+  "serverTimeUTC": "2026-10-03T10:30:00.000Z",
+  "stats": {
+    "totalScheduled": 5,
+    "currentlyDue": 1,
+    "processing": 0,
+    "failed": 0,
+    "published": 24
+  },
+  "nextDuePost": {
+    "_id": "6740b2a0c841320ef49a0002",
+    "title": "Next.js App Router Architecture",
+    "scheduledAt": "2026-10-03T11:00:00.000Z",
+    "status": "Scheduled"
+  }
+}
+```
 
-### 2. `Blog` Model ([backend/models/Blog.js](backend/models/Blog.js))
-| Field | Type | Attributes | Description |
+---
+
+### Blog Management APIs
+
+| Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `title` | String | Required, Trim | Article headline |
-| `content` | String | Required | Main article body (Markdown supported) |
-| `tags` | `[String]` | Array of Strings | Category tags |
-| `conclusion`| String | Optional | Executive summary / key takeaways banner |
-| `imageUrl` | String | Default: Unsplash tech dummy | Cover image URL |
-| `status` | String | Enum: `['draft', 'published']`, Default: `'published'` | Publication state |
-| `createdAt` | Date | Automatic timestamps | Creation timestamp |
-| `updatedAt` | Date | Automatic timestamps | Last updated timestamp |
+| `GET` | `/api/blogs` | Get published articles (with search, tag filters, pagination) | Public |
+| `GET` | `/api/blogs/:id` | Get single article (public if Published; admin preview for Drafts/Scheduled) | Public / Optional Token |
+| `GET` | `/api/blogs/admin/all` | Get all articles for admin (supports `?status=Scheduled&search=...`) | Admin JWT |
+| `POST` | `/api/blogs` | Create new article (status: `Draft`, `Scheduled`, or `Published`) | Admin JWT |
+| `PUT` | `/api/blogs/:id` | Update article content or schedule safely | Admin JWT |
+| `DELETE`| `/api/blogs/:id` | Delete article permanently | Admin JWT |
+| `POST` | `/api/blogs/ai-generate` | Generate complete article draft with Groq Cloud LLM | Admin JWT |
+
+---
+
+### Authentication & Administrator Management APIs
+
+| Method | Endpoint | Description | Authorization | Request Body |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | Log in administrator (returns JWT & role) | Public | `{ "email": "...", "password": "..." }` |
+| `POST` | `/api/auth/register` | Create a new administrator account | 👑 SuperAdmin Only | `{ "name": "...", "email": "...", "password": "...", "role": "admin" }` |
+| `GET` | `/api/auth/admins` | List all active administrators | 👑 SuperAdmin Only | None |
+| `DELETE` | `/api/auth/admins/:id` | Remove an admin account | 👑 SuperAdmin Only | None |
+| `GET` | `/api/auth/me` | Fetch currently logged-in admin profile | Admin / SuperAdmin | None |
+
+---
+
+## 🖥️ Frontend User Guide
+
+The administrative portal provides a streamlined, role-aware workflow for article lifecycle management and admin governance:
+
+### 1. One-Click Login & Role Autofill
+- Navigate to `/admin/login`.
+- Click the **👑 Autofill SuperAdmin** button (`superadmin@utsanova.com` / `superadmin@1234`) or **🛡️ Autofill Admin** button (`admin@utsanova.com` / `admin@1234`).
+- Log in to access the control panel.
+
+### 2. 👑 SuperAdmin Team Management ("Manage Admins")
+- When logged in as **SuperAdmin**, a purple **👑 Manage Admins** button appears in the top navigation bar.
+- Clicking this opens the **Admin Governance Modal**:
+  - **View Team**: See all registered administrators, their emails, roles, and creation dates.
+  - **Create New Admin**: Fill in Name, Email, and Password to immediately provision an admin account.
+  - **Revoke Admin**: Delete an administrator account with 1-click confirmation (SuperAdmins cannot delete themselves).
+- Regular administrators cannot see this button and are blocked from admin-management API endpoints.
+
+### 3. Scheduling a Post
+1. Click **+ Create Article** or click the **Edit (pencil)** icon on any article.
+2. Under **Publishing & Release Options**, select **Schedule Post**.
+3. Use the date/time picker or click a quick preset:
+   - **+1 Hour**
+   - **Tomorrow 9:00 AM**
+   - **Tomorrow 6:00 PM**
+   - **+2 Days**
+4. Review the timezone preview banner showing both your local time and stored UTC timestamp.
+5. Click **Schedule Post**. The article will receive an indigo **Scheduled** badge.
+
+### 4. Zero Human Intervention: Automated Publishing
+- **No manual buttons or triggers needed!**
+- The system runs an automated background runner:
+  - In **Local Development / Docker**: The built-in 30-second background ticker automatically checks and publishes due posts.
+  - In **Vercel Production**: Vercel Cron automatically calls `/api/cron/publish-scheduled-posts` every minute.
+- A live **"Auto-Publisher Active"** green badge in the dashboard indicates the automated background engine is running.
+- When the post's scheduled timestamp arrives, it changes to **Published** and appears in the public feed automatically.
+
+### 5. Cancelling a Schedule or Publishing Immediately
+- **Cancel Schedule**: Click **Cancel Schedule** on any scheduled table row to instantly revert the article back to **Draft**.
+- **Publish Now**: Need an article live right away? Click **Publish Now** to bypass the scheduled timer and release immediately.
+
+---
+
+## 🚀 Vercel Deployment Guide (Step-by-Step)
+
+Deploying the complete application (Frontend, Express Backend, and Vercel Cron) takes under 3 minutes:
+
+### Step 1: Vercel Configuration (`vercel.json`)
+The project includes a root [vercel.json](vercel.json) file preconfigured with the Vercel Cron schedule:
+
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ],
+  "routes": [
+    { "src": "/api/cron/(.*)", "dest": "backend/server.js" },
+    { "src": "/api/(.*)", "dest": "backend/server.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "frontend/$1" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/publish-scheduled-posts",
+      "schedule": "* * * * *"
+    }
+  ]
+}
+```
+
+### Step 2: Push Your Code to GitHub
+```bash
+git add .
+git commit -m "feat: implement vercel cron scheduled publishing"
+git push origin main
+```
+
+### Step 3: Import Project into Vercel
+1. Log in to [vercel.com](https://vercel.com) and click **Add New...** -> **Project**.
+2. Select your repository `BLOG-POST`.
+3. Keep the default root directory `./`.
+
+### Step 4: Add Environment Variables in Vercel
+In the **Environment Variables** section of the deployment screen, add the following variables:
+
+| Variable Name | Example Value | Description |
+| :--- | :--- | :--- |
+| `NODE_ENV` | `production` | Production environment flag |
+| `MONGO_URI` | `mongodb+srv://user:pass@cluster0...mongodb.net/utsanova_blog?retryWrites=true&w=majority` | MongoDB Atlas Connection String |
+| `JWT_SECRET` | `your_super_strong_jwt_secret_key` | Secret key for JWT verification |
+| `GROQ_API_KEY` | `gsk_your_groq_api_key` | Groq Cloud LLM API Key |
+| `CRON_SECRET` | `utsanova_prod_cron_secret_778899` | **Critical**: Protects the cron endpoint. Vercel automatically passes this in `Authorization: Bearer <CRON_SECRET>` |
+
+### Step 5: Deploy & Verify Cron
+1. Click **Deploy**. Vercel will build both the frontend and backend.
+2. Once deployed, open your Vercel project dashboard -> **Settings** -> **Cron Jobs**.
+3. You will see `/api/cron/publish-scheduled-posts` listed with the schedule `* * * * *` (Every minute).
+4. Vercel displays the invocation history, last execution time, and HTTP 200 response codes.
+
+### Step 6: Testing in Production
+1. Log into your deployed admin dashboard (`https://<your-project>.vercel.app/admin/login`).
+2. Create an article and schedule it for **2 minutes** in the future.
+3. Wait 2 minutes. When Vercel Cron fires on the next minute, the article status automatically changes to **Published** and appears on the homepage feed!
+
+---
+
+## 🐳 Docker Single-Container Deployment
+
+Docker is maintained for platforms like Render, Railway, AWS ECS, or local container testing.
+
+### Docker vs. Vercel Cron:
+- **Docker Container**: Packages the Express server and Vite frontend into a single image.
+- **Production Scheduler**: The scheduler runs via **Vercel Cron** invoking `/api/cron/publish-scheduled-posts`. No permanent background daemon or `node-cron` process is created inside the container.
+
+To build and run the Docker container locally:
+```bash
+docker build -t utsanova-blog .
+docker run -p 5000:5000 --env-file backend/.env utsanova-blog
+```
 
 ---
 
 ## 💻 Local Development Setup
 
-### Prerequisites
-- Node.js (v18, v20, or v24)
-- Git
-- MongoDB (Local or Atlas connection)
+### 1. Prerequisites
+- Node.js v20+ or v24
+- MongoDB Atlas cluster or local MongoDB instance
 
-### 1. Clone Repository
+### 2. Clone & Install
 ```bash
 git clone https://github.com/PARAS-BYTE/BLOG-POST.git
 cd BLOG-POST
+
+# Install backend dependencies
+cd backend && npm install
+
+# Install frontend dependencies
+cd ../frontend && npm install
 ```
 
-### 2. Configure Backend
-Create `backend/.env`:
+### 3. Configure Environment Variables
+Copy [.env.example](backend/.env.example) to `backend/.env` and update the values:
 ```env
 PORT=5000
-MONGO_URI=mongodb+srv://<user>:<password>@cluster0.jtyig2h.mongodb.net/utsanova_blog?retryWrites=true&w=majority&appName=Cluster0
+NODE_ENV=development
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/utsanova_blog?retryWrites=true&w=majority
 JWT_SECRET=your_super_secret_jwt_key
 GROQ_API_KEY=gsk_your_groq_api_key
+CRON_SECRET=utsanova_cron_dev_secret_2026
 ```
-
-### 3. Seed the Database
-Populate the database with the default admin and sample articles:
-```bash
-cd backend
-npm install
-node seed.js
-```
-
-Default credentials generated:
-- **Email**: `admin@utsanova.com`
-- **Password**: `AdminSecurePassword123`
 
 ### 4. Run Development Servers
-Open two terminal windows:
-
-**Terminal 1 (Backend API):**
 ```bash
+# Terminal 1 (Backend API):
 cd backend
 npm run dev
 # Running on http://localhost:5000
-```
 
-**Terminal 2 (Frontend UI):**
-```bash
+# Terminal 2 (Frontend UI):
 cd frontend
-npm install
 npm run dev
 # Running on http://localhost:5173
 ```
 
 ---
 
-## 📁 Project Directory Structure
+## 🔑 Environment Variables Guide
 
+| Variable | Required | Where to Set | Purpose |
+| :--- | :--- | :--- | :--- |
+| `PORT` | Optional (default 5000) | Backend `.env` | Local server port |
+| `NODE_ENV` | Yes | Backend `.env`, Vercel | `development` / `production` / `test` |
+| `MONGO_URI` | Yes | Backend `.env`, Vercel | MongoDB Atlas database URI |
+| `JWT_SECRET` | Yes | Backend `.env`, Vercel | Used to sign & verify admin JWTs |
+| `GROQ_API_KEY` | Optional | Backend `.env`, Vercel | Groq LLM API key for AI drafting |
+| `CRON_SECRET` | Yes | Backend `.env`, Vercel | Authenticates Vercel Cron triggers |
+
+---
+
+## 🧪 Automated Testing Strategy & Test Suite
+
+The project includes an automated test suite ([backend/test-scheduler.js](backend/test-scheduler.js)) that tests all 12 core requirements:
+
+```bash
+cd backend
+npm test
+```
+
+### Test Suite Execution Output:
 ```text
-Blog_System/
-├── .dockerignore                 # Excludes node_modules, .env, and dist from Docker context
-├── Dockerfile                    # Multi-stage production build (Frontend + Backend)
-├── README.md                     # Comprehensive system documentation
-│
-├── backend/
-│   ├── middleware/
-│   │   └── authMiddleware.js     # Validates JWT tokens on protected admin routes
-│   ├── models/
-│   │   ├── Admin.js              # Admin schema with bcrypt password hashing
-│   │   └── Blog.js               # Blog schema (title, content, tags, conclusion, status)
-│   ├── routes/
-│   │   ├── authRoutes.js         # /api/auth (login, register)
-│   │   └── blogRoutes.js         # /api/blogs (CRUD, search, /ai-generate)
-│   ├── .env                      # Local environment configuration
-│   ├── package.json
-│   ├── seed.js                   # Pre-populates default admin & published articles
-│   └── server.js                 # Express 5 entry point, API routes, & static SPA serving
-│
-└── frontend/
-    ├── public/                   # Static assets & icons
-    ├── src/
-    │   ├── components/
-    │   │   ├── Footer.jsx        # Company footer with branding & links
-    │   │   ├── MarkdownRenderer.jsx # Renders markdown with GFM tables & code styling
-    │   │   ├── Navbar.jsx        # Navigation bar with responsive links & auth state
-    │   │   └── ProtectedRoute.jsx# Guards admin routes from unauthenticated users
-    │   ├── pages/
-    │   │   ├── AdminDashboard.jsx# Analytics cards, article table, CRUD modal, & AI assistant
-    │   │   ├── AdminLogin.jsx    # Secure admin sign-in with quick test credentials
-    │   │   ├── AdminRegister.jsx # Administrator account creation
-    │   │   ├── BlogDetail.jsx    # Editorial reader view with conclusion callout & tags
-    │   │   └── Home.jsx          # Public blog feed with live search & tag filtering
-    │   ├── services/
-    │   │   └── api.js            # Axios client with JWT interceptor & dynamic baseURL
-    │   ├── utils/
-    │   │   └── markdownUtils.js  # Reading time calculator & markdown text extractor
-    │   ├── App.jsx               # Client router setup & layout wrapper
-    │   ├── index.css             # Tailwind v4 configuration & base styles
-    │   └── main.jsx              # React root DOM mount
-    ├── index.html
-    ├── package.json
-    └── vite.config.js
+======================================================
+  Running Scheduled Blog-Post Publishing Test Suite   
+======================================================
+
+Connected to MongoDB for testing.
+
+  [1/12] 1. Creating a draft... PASSED ✓
+  [2/12] 2. Scheduling a post for future release... PASSED ✓
+  [3/12] 3. Rejecting a past scheduled time... PASSED ✓
+  [4/12] 4. Editing scheduled post preserves schedule metadata... PASSED ✓
+  [5/12] 5. Cancelling a scheduled post returns to Draft... PASSED ✓
+  [6/12] 6. Cron finding a due scheduled post (scheduledAt <= now)... PASSED ✓
+  [7/12] 7. Publishing due post (status=Published, publishedAt set)... PASSED ✓
+  [8/12] 8. Cron strictly ignores future scheduled posts... PASSED ✓
+  [9/12] 9. Preventing duplicate publishing across concurrent workers... PASSED ✓
+  [10/12] 10. Handling publishing failure isolation and error logging... PASSED ✓
+  [11/12] 11. Handling multiple due posts cleanly in a batch... PASSED ✓
+  [12/12] 12. Handling an empty queue returns clean summary... PASSED ✓
+
+All 12 tests passed successfully! (12/12)
+Test artifacts cleaned up from MongoDB.
+```
+
+### Manual Testing with cURL / Postman:
+You can trigger the cron endpoint anytime in development without waiting for Vercel Cron:
+
+```bash
+# Using Bearer token
+curl -X POST http://localhost:5000/api/cron/publish-scheduled-posts \
+  -H "Authorization: Bearer utsanova_cron_dev_secret_2026"
+
+# Using URL query parameter
+curl -X GET "http://localhost:5000/api/cron/publish-scheduled-posts?secret=utsanova_cron_dev_secret_2026"
 ```
 
 ---
 
 ## 🔍 Troubleshooting & Gotchas
 
-### 1. `querySrv ECONNREFUSED` on Windows Local Environment
-- **Cause**: Node.js default DNS resolver on some local networks fails to resolve MongoDB Atlas SRV records (`_mongodb._tcp...`).
-- **Solution**: Both `backend/server.js` and `backend/seed.js` include explicit Google DNS fallbacks:
-  ```javascript
-  const dns = require('dns');
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-  ```
+### 1. `querySrv ECONNREFUSED` on Windows
+- **Cause**: Some Windows DNS resolvers fail to lookup MongoDB Atlas SRV records.
+- **Solution**: Handled automatically in `server.js` and `test-scheduler.js` via Google DNS fallbacks (`8.8.8.8`).
 
-### 2. Express 5 Wildcard Routing Error (`Missing parameter name at index 1: *`)
-- **Cause**: Express 5 upgraded its routing library to `path-to-regexp v8`, which disallows un-named wildcards (`app.get('*', ...)`).
-- **Solution**: Handled with standard middleware:
-  ```javascript
-  app.use((req, res, next) => {
-      if (req.method === 'GET' && !req.path.startsWith('/api')) {
-          return res.sendFile(path.join(staticPath, 'index.html'));
-      }
-      next();
-  });
-  ```
+### 2. Vercel Cron Returns 401 Unauthorized
+- **Cause**: `CRON_SECRET` in Vercel environment variables does not match the incoming token.
+- **Solution**: Ensure `CRON_SECRET` is defined in Vercel Project Settings -> Environment Variables.
 
-### 3. MongoDB Atlas Connection Timeout on Render
-- **Cause**: Atlas Network Access does not permit incoming traffic from Render's cloud servers.
-- **Solution**: In MongoDB Atlas -> **Network Access**, ensure `0.0.0.0/0` (Allow access from anywhere) is active.
+### 3. Overlapping Invocations / Duplicate Publishing
+- **Cause**: Cron executions overlap when multiple posts take time to process.
+- **Solution**: Protected automatically by our MongoDB atomic claiming mechanism (`findOneAndUpdate` with `status: 'Processing'`).
 
 ---
 

@@ -28,4 +28,14 @@ const protect = async (req, res, next) => {
     }
 };
 
-module.exports = { protect };
+const requireSuperAdmin = (req, res, next) => {
+    if (req.admin && req.admin.role === 'superadmin') {
+        return next();
+    }
+    return res.status(403).json({
+        message: 'Access forbidden: Only SuperAdmin accounts can perform this action.'
+    });
+};
+
+module.exports = { protect, requireSuperAdmin };
+

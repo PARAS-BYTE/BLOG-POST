@@ -13,17 +13,36 @@ const seedData = async () => {
         await mongoose.connect(process.env.MONGO_URI);
         console.log('MongoDB connected for seeding...');
 
-        // 1. Seed Admin
+        // 1. Seed SuperAdmin
+        const superAdminEmail = 'superadmin@utsanova.com';
+        const existingSuperAdmin = await Admin.findOne({ email: superAdminEmail });
+
+        if (!existingSuperAdmin) {
+            const superAdmin = new Admin({
+                email: superAdminEmail,
+                password: 'superadmin@1234',
+                role: 'superadmin'
+            });
+            await superAdmin.save();
+            console.log('Default SuperAdmin Created (superadmin@utsanova.com / superadmin@1234)!');
+        } else {
+            existingSuperAdmin.role = 'superadmin';
+            await existingSuperAdmin.save();
+            console.log('SuperAdmin account verified.');
+        }
+
+        // 2. Seed Regular Admin
         const adminEmail = 'admin@utsanova.com';
         const existingAdmin = await Admin.findOne({ email: adminEmail });
 
         if (!existingAdmin) {
             const admin = new Admin({
                 email: adminEmail,
-                password: 'AdminSecurePassword123'
+                password: 'admin@1234',
+                role: 'admin'
             });
             await admin.save();
-            console.log('Default Admin Created Successfully!');
+            console.log('Default Admin Created (admin@utsanova.com / admin@1234)!');
         } else {
             console.log('Default admin already exists.');
         }

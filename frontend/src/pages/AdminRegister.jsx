@@ -66,8 +66,13 @@ export default function AdminRegister() {
             <h1 className="text-xl font-bold text-slate-900">Create Admin Account</h1>
           </div>
           <p className="text-xs text-slate-500">
-            Register an authorized account to publish and edit blog articles.
+            Create an administrator account. Only the SuperAdmin is authorized to register new administrators.
           </p>
+        </div>
+
+        {/* SuperAdmin Authorization Notice */}
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-lg p-3 mb-4">
+          <strong>Note:</strong> Creating admin accounts requires an active <strong>SuperAdmin</strong> session. You can also add administrators directly from the Admin Dashboard.
         </div>
 
         {/* Error Notification */}

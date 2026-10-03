@@ -24,11 +24,30 @@ const blogSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Draft', 'Published'],
+        enum: ['Draft', 'Scheduled', 'Processing', 'Published', 'Failed'],
         default: 'Draft'
+    },
+    scheduledAt: {
+        type: Date,
+        default: null
+    },
+    publishedAt: {
+        type: Date,
+        default: null
+    },
+    claimedAt: {
+        type: Date,
+        default: null
+    },
+    failureReason: {
+        type: String,
+        default: ''
     }
 }, {
     timestamps: true // Automatically manages createdAt and updatedAt
 });
+
+// Compound index for optimal scheduler queries
+blogSchema.index({ status: 1, scheduledAt: 1 });
 
 module.exports = mongoose.model('Blog', blogSchema);

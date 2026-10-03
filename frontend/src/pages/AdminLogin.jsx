@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { adminLogin } from '../services/api';
-import { Lock, Mail, ArrowLeft, Shield, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowLeft, Shield, AlertCircle, Crown, UserCheck } from 'lucide-react';
 
 /**
  * AdminLogin Page
- * Secure login portal for authorized blog administrators.
+ * Secure sign-in portal for SuperAdmin and authorized administrators.
  */
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -21,8 +21,10 @@ export default function AdminLogin() {
 
     try {
       const data = await adminLogin({ email: email.trim(), password });
-      // Store token securely in localStorage
+      // Store token and role securely in localStorage
       localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminRole', data.role || 'admin');
+      localStorage.setItem('adminEmail', data.email);
       navigate('/admin/dashboard');
     } catch (err) {
       setError(
@@ -33,10 +35,18 @@ export default function AdminLogin() {
     }
   };
 
-  // Helper function to auto-fill default admin credentials for testing
-  const fillDefaultCredentials = () => {
+  // Helper function to auto-fill SuperAdmin credentials
+  const fillSuperAdminCredentials = () => {
+    setEmail('superadmin@utsanova.com');
+    setPassword('superadmin@1234');
+    setError('');
+  };
+
+  // Helper function to auto-fill regular Admin credentials
+  const fillAdminCredentials = () => {
     setEmail('admin@utsanova.com');
-    setPassword('AdminSecurePassword123');
+    setPassword('admin@1234');
+    setError('');
   };
 
   return (
@@ -59,7 +69,7 @@ export default function AdminLogin() {
             <h1 className="text-xl font-bold text-slate-900">Admin Portal Sign In</h1>
           </div>
           <p className="text-xs text-slate-500">
-            Authorized access only. Enter your admin credentials to manage content.
+            Sign in as SuperAdmin or Administrator to manage articles and automated scheduling.
           </p>
         </div>
 
@@ -84,7 +94,7 @@ export default function AdminLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@utsanova.com"
+                placeholder="superadmin@utsanova.com"
                 className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 transition"
               />
             </div>
@@ -120,32 +130,36 @@ export default function AdminLogin() {
                 Verifying Credentials...
               </>
             ) : (
-              'Sign In as Admin'
+              'Sign In to Dashboard'
             )}
           </button>
         </form>
 
-        {/* Demo Credentials Helper Pill */}
-        <div className="mt-5 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center justify-between">
-          <div>
-            <span className="font-semibold text-slate-700">Quick Test Credentials:</span>
-            <div className="text-[11px] text-slate-500">admin@utsanova.com</div>
+        {/* Quick Autofill Selector */}
+        <div className="mt-5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+          <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+            Quick Test Accounts (Auto-fill)
           </div>
-          <button
-            type="button"
-            onClick={fillDefaultCredentials}
-            className="text-xs bg-white border border-slate-200 hover:border-blue-400 text-blue-600 font-medium px-2.5 py-1 rounded transition shadow-2xs"
-          >
-            Auto-fill
-          </button>
-        </div>
-
-        {/* Sign Up Redirect */}
-        <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
-          Need an administrator account?{' '}
-          <Link to="/admin/register" className="text-blue-600 hover:text-blue-700 font-semibold">
-            Create Admin Account
-          </Link>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={fillSuperAdminCredentials}
+              className="flex items-center justify-center gap-1.5 p-2 bg-white border border-amber-200 hover:border-amber-300 hover:bg-amber-50/50 rounded-lg text-xs font-semibold text-amber-900 transition cursor-pointer shadow-2xs"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-600" /> SuperAdmin
+            </button>
+            <button
+              type="button"
+              onClick={fillAdminCredentials}
+              className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-blue-600" /> Admin
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">
+            • <strong>SuperAdmin</strong> can create & manage admin accounts and schedule blogs.<br/>
+            • <strong>Admin</strong> can create, edit, and schedule blogs.
+          </p>
         </div>
 
       </div>

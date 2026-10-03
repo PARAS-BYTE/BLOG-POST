@@ -100,7 +100,7 @@ router.get('/', async (req, res) => {
 
         // If client explicitly requests all blogs without pagination
         if (all === 'true') {
-            const blogs = await Blog.find(query).sort({ createdAt: -1 });
+            const blogs = await Blog.find(query).sort({ publishedAt: -1, createdAt: -1 });
             return res.json(blogs);
         }
 
@@ -112,7 +112,7 @@ router.get('/', async (req, res) => {
         const totalPages = Math.max(1, Math.ceil(totalBlogs / limitNum));
 
         const blogs = await Blog.find(query)
-            .sort({ createdAt: -1 })
+            .sort({ publishedAt: -1, createdAt: -1 })
             .skip(skip)
             .limit(limitNum);
 
@@ -133,12 +133,17 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get all blogs for admin dashboard (Draft + Published, optional pagination)
+// Get all blogs for admin dashboard (Draft + Scheduled + Published + Failed, with search & filtering)
 // NOTE: Must be defined before /:id route
 router.get('/admin/all', protect, async (req, res) => {
     try {
-        const { search, page, limit } = req.query;
+        const { search, page, limit, status } = req.query;
         let query = {};
+
+        // Filter by status if provided (and not ALL)
+        if (status && status !== 'ALL') {
+            query.status = status;
+        }
 
         if (search && search.trim()) {
             const searchRegex = { $regex: search.trim(), $options: 'i' };
@@ -178,13 +183,100 @@ router.get('/admin/all', protect, async (req, res) => {
     }
 });
 
+// Schedule a blog post (Protected)
+// POST /api/blogs/:id/schedule
+router.post('/:id/schedule', protect, async (req, res) => {
+    try {
+        const { scheduledAt } = req.body;
+
+        if (!scheduledAt) {
+            return res.status(400).json({ message: 'scheduledAt date and time is required.' });
+        }
+
+        const scheduledDate = new Date(scheduledAt);
+        if (isNaN(scheduledDate.getTime())) {
+            return res.status(400).json({ message: 'Invalid scheduledAt date format. Must be a valid date/time.' });
+        }
+
+        const now = new Date();
+        if (scheduledDate <= now) {
+            return res.status(400).json({ message: 'Scheduled publishing time must be in the future.' });
+        }
+
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        if (blog.status === 'Published') {
+            return res.status(400).json({ message: 'This post is already published.' });
+        }
+
+        blog.status = 'Scheduled';
+        blog.scheduledAt = scheduledDate;
+        blog.failureReason = '';
+        blog.claimedAt = null;
+
+        const updatedBlog = await blog.save();
+        console.log(`[BlogRoutes] Blog "${blog.title}" scheduled for ${scheduledDate.toISOString()}`);
+        res.json(updatedBlog);
+    } catch (error) {
+        res.status(500).json({ message: 'Error scheduling blog', error: error.message });
+    }
+});
+
+// Cancel scheduling and revert to Draft (Protected)
+// POST /api/blogs/:id/cancel-schedule
+router.post('/:id/cancel-schedule', protect, async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        if (blog.status === 'Published') {
+            return res.status(400).json({ message: 'Cannot cancel schedule for an already published post.' });
+        }
+
+        blog.status = 'Draft';
+        blog.scheduledAt = null;
+        blog.failureReason = '';
+        blog.claimedAt = null;
+
+        const updatedBlog = await blog.save();
+        console.log(`[BlogRoutes] Schedule cancelled for "${blog.title}". Reverted to Draft.`);
+        res.json(updatedBlog);
+    } catch (error) {
+        res.status(500).json({ message: 'Error cancelling schedule', error: error.message });
+    }
+});
+
 // Create new blog (Protected)
 router.post('/', protect, async (req, res) => {
     try {
-        const { title, content, imageUrl, tags, conclusion, status } = req.body;
+        const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
 
         if (!title || !content || !conclusion) {
             return res.status(400).json({ message: 'Please fill in all required fields' });
+        }
+
+        let blogStatus = status || 'Draft';
+        let parsedScheduledAt = null;
+        let publishedAt = null;
+
+        if (blogStatus === 'Scheduled') {
+            if (!scheduledAt) {
+                return res.status(400).json({ message: 'scheduledAt is required when creating a scheduled post.' });
+            }
+            parsedScheduledAt = new Date(scheduledAt);
+            if (isNaN(parsedScheduledAt.getTime())) {
+                return res.status(400).json({ message: 'Invalid scheduledAt format.' });
+            }
+            if (parsedScheduledAt <= new Date()) {
+                return res.status(400).json({ message: 'Scheduled time must be in the future.' });
+            }
+        } else if (blogStatus === 'Published') {
+            publishedAt = new Date();
         }
 
         const formattedTags = Array.isArray(tags)
@@ -194,12 +286,15 @@ router.post('/', protect, async (req, res) => {
                 : [];
 
         const newBlog = new Blog({
-            title,
-            content,
+            title: title.trim(),
+            content: content.trim(),
             imageUrl: imageUrl ? imageUrl.trim() : '',
             tags: formattedTags,
-            conclusion,
-            status: status || 'Draft'
+            conclusion: conclusion.trim(),
+            status: blogStatus,
+            scheduledAt: parsedScheduledAt,
+            publishedAt,
+            failureReason: ''
         });
 
         const savedBlog = await newBlog.save();
@@ -210,34 +305,65 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update blog (Protected)
+// Safe editing for scheduled, draft, and published blogs
 router.put('/:id', protect, async (req, res) => {
     try {
-        const { title, content, imageUrl, tags, conclusion, status } = req.body;
+        const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
 
-        const updateData = {};
-        if (title !== undefined) updateData.title = title;
-        if (content !== undefined) updateData.content = content;
-        if (imageUrl !== undefined) updateData.imageUrl = imageUrl.trim();
-        if (conclusion !== undefined) updateData.conclusion = conclusion;
-        if (status !== undefined) updateData.status = status;
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        if (title !== undefined) blog.title = title.trim();
+        if (content !== undefined) blog.content = content.trim();
+        if (imageUrl !== undefined) blog.imageUrl = imageUrl.trim();
+        if (conclusion !== undefined) blog.conclusion = conclusion.trim();
         if (tags !== undefined) {
-            updateData.tags = Array.isArray(tags)
+            blog.tags = Array.isArray(tags)
                 ? tags
                 : typeof tags === 'string'
                     ? tags.split(',').map((t) => t.trim()).filter(Boolean)
                     : [];
         }
 
-        const updatedBlog = await Blog.findByIdAndUpdate(
-            req.params.id,
-            updateData,
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedBlog) {
-            return res.status(404).json({ message: 'Blog not found' });
+        // Handle publication status transitions
+        if (status !== undefined) {
+            blog.status = status;
+            if (status === 'Published') {
+                if (!blog.publishedAt) {
+                    blog.publishedAt = new Date();
+                }
+                blog.scheduledAt = null;
+                blog.failureReason = '';
+            } else if (status === 'Draft') {
+                blog.scheduledAt = null;
+                blog.failureReason = '';
+            }
         }
 
+        // Handle explicit scheduledAt updates
+        if (scheduledAt !== undefined) {
+            if (scheduledAt === null || scheduledAt === '') {
+                blog.scheduledAt = null;
+                if (blog.status === 'Scheduled') {
+                    blog.status = 'Draft';
+                }
+            } else {
+                const parsedDate = new Date(scheduledAt);
+                if (isNaN(parsedDate.getTime())) {
+                    return res.status(400).json({ message: 'Invalid scheduledAt format.' });
+                }
+                if (parsedDate <= new Date()) {
+                    return res.status(400).json({ message: 'Scheduled time must be in the future.' });
+                }
+                blog.scheduledAt = parsedDate;
+                blog.status = 'Scheduled';
+                blog.failureReason = '';
+            }
+        }
+
+        const updatedBlog = await blog.save();
         res.json(updatedBlog);
     } catch (error) {
         res.status(500).json({ message: 'Error updating blog', error: error.message });
@@ -257,14 +383,34 @@ router.delete('/:id', protect, async (req, res) => {
     }
 });
 
-// Get single blog by ID (Public)
+// Get single blog by ID (Public with preview support)
 router.get('/:id', async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id);
         if (!blog) {
             return res.status(404).json({ message: 'Blog not found' });
         }
-        res.json(blog);
+
+        // If published, anyone can view it
+        if (blog.status === 'Published') {
+            return res.json(blog);
+        }
+
+        // If not published (Draft, Scheduled, Failed), check for admin authorization
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const token = authHeader.split(' ')[1];
+                jwt.verify(token, process.env.JWT_SECRET);
+                // Valid admin token, allow viewing draft/scheduled post preview
+                return res.json(blog);
+            } catch (err) {
+                // Invalid token
+            }
+        }
+
+        return res.status(404).json({ message: 'This article is not publicly available.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
