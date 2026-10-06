@@ -21,10 +21,12 @@ export default function AdminLogin() {
 
     try {
       const data = await adminLogin({ email: email.trim(), password });
-      // Store token and role securely in localStorage
+      // Store token, role, and permissions securely in localStorage
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminRole', data.role || 'admin');
       localStorage.setItem('adminEmail', data.email);
+      localStorage.setItem('adminStatus', data.status || 'active');
+      localStorage.setItem('adminPermissions', JSON.stringify(data.permissions || {}));
       navigate('/admin/dashboard');
     } catch (err) {
       setError(

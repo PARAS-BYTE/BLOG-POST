@@ -15,6 +15,10 @@ export default function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminRole');
+    localStorage.removeItem('adminEmail');
+    localStorage.removeItem('adminStatus');
+    localStorage.removeItem('adminPermissions');
     navigate('/admin/login');
   };
 

@@ -81,6 +81,16 @@ export const deleteAdminAccount = async (id) => {
     return response.data;
 };
 
+export const updateAdminPermissions = async (id, permissions) => {
+    const response = await API.put(`/auth/admins/${id}/permissions`, { permissions });
+    return response.data;
+};
+
+export const toggleAdminStatus = async (id, status) => {
+    const response = await API.put(`/auth/admins/${id}/status`, { status });
+    return response.data;
+};
+
 export const fetchCurrentUser = async () => {
     const response = await API.get('/auth/me');
     return response.data;

@@ -11,7 +11,10 @@ import {
   adminRegister,
   deleteAdminAccount,
   triggerCronPublish,
-  fetchQueueStatus
+  fetchQueueStatus,
+  fetchCurrentUser,
+  updateAdminPermissions,
+  toggleAdminStatus
 } from '../services/api';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
@@ -43,7 +46,17 @@ import {
   LogOut,
   UserPlus,
   Play,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  Unlock,
+  Ban,
+  Check,
+  SlidersHorizontal,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 
 /**
@@ -86,9 +99,41 @@ export default function AdminDashboard() {
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   // Current session info
-  const currentRole = localStorage.getItem('adminRole') || 'admin';
+  const [currentRole, setCurrentRole] = useState(() => localStorage.getItem('adminRole') || 'admin');
   const currentEmail = localStorage.getItem('adminEmail') || 'admin';
   const isSuperAdmin = currentRole === 'superadmin';
+
+  // Granular permissions for logged-in admin
+  const [userPermissions, setUserPermissions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('adminPermissions');
+      return saved ? JSON.parse(saved) : {
+        canCreateBlog: true,
+        canEditBlog: true,
+        canDeleteBlog: true,
+        canUseAI: true,
+        canScheduleBlog: true
+      };
+    } catch {
+      return {
+        canCreateBlog: true,
+        canEditBlog: true,
+        canDeleteBlog: true,
+        canUseAI: true,
+        canScheduleBlog: true
+      };
+    }
+  });
+
+  // Modal to inspect own permissions (for regular admins)
+  const [isMyPermissionsModalOpen, setIsMyPermissionsModalOpen] = useState(false);
+
+  // Effective permissions: SuperAdmin has unrestricted access; admins check their granted permissions
+  const canCreate = isSuperAdmin || Boolean(userPermissions?.canCreateBlog);
+  const canEdit = isSuperAdmin || Boolean(userPermissions?.canEditBlog);
+  const canDelete = isSuperAdmin || Boolean(userPermissions?.canDeleteBlog);
+  const canUseAI = isSuperAdmin || Boolean(userPermissions?.canUseAI);
+  const canSchedule = isSuperAdmin || Boolean(userPermissions?.canScheduleBlog);
 
   // Blog list & loading states (strictly default to empty array)
   const [blogs, setBlogs] = useState([]);
@@ -130,8 +175,16 @@ export default function AdminDashboard() {
   const [adminListLoading, setAdminListLoading] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminPermissions, setNewAdminPermissions] = useState({
+    canCreateBlog: true,
+    canEditBlog: true,
+    canDeleteBlog: true,
+    canUseAI: true,
+    canScheduleBlog: true
+  });
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [adminModalError, setAdminModalError] = useState('');
+  const [updatingAdminId, setUpdatingAdminId] = useState(null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -201,6 +254,35 @@ export default function AdminDashboard() {
     }
   };
 
+  // Sync current user's active permissions and revocation status from server
+  useEffect(() => {
+    const syncUserSession = async () => {
+      try {
+        const profile = await fetchCurrentUser();
+        if (profile.status === 'revoked' || profile.isActive === false) {
+          alert('Your administrator account access has been revoked by the SuperAdministrator.');
+          handleLogout();
+          return;
+        }
+        if (profile.permissions) {
+          setUserPermissions(profile.permissions);
+          localStorage.setItem('adminPermissions', JSON.stringify(profile.permissions));
+        }
+        if (profile.role) {
+          setCurrentRole(profile.role);
+          localStorage.setItem('adminRole', profile.role);
+        }
+      } catch (err) {
+        if (err.response?.status === 403 && err.response?.data?.isRevoked) {
+          alert('Your administrator account access has been revoked by the SuperAdministrator.');
+          handleLogout();
+        }
+      }
+    };
+
+    syncUserSession();
+  }, []);
+
   useEffect(() => {
     loadBlogs();
   }, []);
@@ -232,6 +314,10 @@ export default function AdminDashboard() {
 
   // Open Modal in "Create" mode
   const openCreateModal = (defaultStatus = 'Published') => {
+    if (!canCreate) {
+      showToast('Permission Denied: You do not have permission to create articles.');
+      return;
+    }
     setEditBlogId(null);
     setTitle('');
     setContent('');
@@ -249,6 +335,10 @@ export default function AdminDashboard() {
 
   // Open Modal in "Edit" mode with prefilled details
   const openEditModal = (blog) => {
+    if (!canEdit) {
+      showToast('Permission Denied: You do not have permission to edit articles.');
+      return;
+    }
     setEditBlogId(blog._id);
     setTitle(blog.title || '');
     setContent(blog.content || '');
@@ -285,6 +375,11 @@ export default function AdminDashboard() {
 
   // AI Content Generator
   const handleGenerateWithAI = async () => {
+    if (!canUseAI) {
+      setModalError('Permission Denied: You do not have permission to use AI blog generation.');
+      return;
+    }
+
     if (!aiTopic.trim()) {
       setModalError('Please enter a topic or outline for the AI assistant.');
       return;
@@ -320,6 +415,21 @@ export default function AdminDashboard() {
   const handleSaveBlog = async (e) => {
     e.preventDefault();
     setModalError('');
+
+    if (!editBlogId && !canCreate) {
+      setModalError('Permission Denied: You do not have permission to create articles.');
+      return;
+    }
+
+    if (editBlogId && !canEdit) {
+      setModalError('Permission Denied: You do not have permission to edit articles.');
+      return;
+    }
+
+    if (status === 'Scheduled' && !canSchedule) {
+      setModalError('Permission Denied: You do not have permission to schedule articles.');
+      return;
+    }
 
     if (!title.trim() || !content.trim() || !conclusion.trim()) {
       setModalError('Please fill in Title, Content, and Conclusion.');
@@ -387,6 +497,10 @@ export default function AdminDashboard() {
 
   // Immediate Publish Now
   const handlePublishNow = async (blog) => {
+    if (!canEdit) {
+      showToast('Permission Denied: You do not have permission to edit or publish articles.');
+      return;
+    }
     try {
       await updateBlog(blog._id, { status: 'Published' });
       showToast(`"${blog.title}" is now Published live!`);
@@ -399,6 +513,10 @@ export default function AdminDashboard() {
 
   // Quick toggle between Published and Draft
   const handleToggleStatus = async (blog) => {
+    if (!canEdit) {
+      showToast('Permission Denied: You do not have permission to edit articles.');
+      return;
+    }
     try {
       const newStatus = blog.status === 'Published' ? 'Draft' : 'Published';
       await updateBlog(blog._id, { status: newStatus });
@@ -413,6 +531,10 @@ export default function AdminDashboard() {
   // Cancel Scheduling Handler
   const confirmCancelSchedule = async () => {
     if (!cancelScheduleCandidate) return;
+    if (!canSchedule) {
+      showToast('Permission Denied: You do not have permission to cancel scheduled articles.');
+      return;
+    }
     try {
       await cancelScheduledBlog(cancelScheduleCandidate._id);
       showToast(`Scheduling cancelled for "${cancelScheduleCandidate.title}". Reverted to Draft.`);
@@ -427,6 +549,10 @@ export default function AdminDashboard() {
   // Delete Blog handler
   const confirmDeleteBlog = async () => {
     if (!deleteCandidate) return;
+    if (!canDelete) {
+      showToast('Permission Denied: You do not have permission to delete articles.');
+      return;
+    }
     try {
       await deleteBlog(deleteCandidate._id);
       showToast(`Article deleted.`);
@@ -438,7 +564,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // SuperAdmin: Create New Admin handler
+  // SuperAdmin: Create New Admin handler with granular permissions
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     setAdminModalError('');
@@ -453,16 +579,64 @@ export default function AdminDashboard() {
       await adminRegister({
         email: newAdminEmail.trim(),
         password: newAdminPassword,
-        role: 'admin'
+        role: 'admin',
+        permissions: newAdminPermissions
       });
       showToast(`Admin account ${newAdminEmail} created successfully!`);
       setNewAdminEmail('');
       setNewAdminPassword('');
+      setNewAdminPermissions({
+        canCreateBlog: true,
+        canEditBlog: true,
+        canDeleteBlog: true,
+        canUseAI: true,
+        canScheduleBlog: true
+      });
       await loadAdmins();
     } catch (err) {
       setAdminModalError(err.response?.data?.message || 'Failed to create admin.');
     } finally {
       setCreatingAdmin(false);
+    }
+  };
+
+  // SuperAdmin: Toggle Account Access Status (Active <-> Revoked)
+  const handleToggleAdminStatus = async (targetAdmin) => {
+    const isRevoking = targetAdmin.status === 'active';
+    const confirmPrompt = isRevoking
+      ? `Revoke access for ${targetAdmin.email}? They will not be able to log in or perform any actions.`
+      : `Reactivate access for ${targetAdmin.email}?`;
+
+    if (!window.confirm(confirmPrompt)) return;
+
+    try {
+      setUpdatingAdminId(targetAdmin._id);
+      const newStatus = isRevoking ? 'revoked' : 'active';
+      await toggleAdminStatus(targetAdmin._id, newStatus);
+      showToast(`Account for ${targetAdmin.email} has been ${isRevoking ? 'revoked' : 'restored'}.`);
+      await loadAdmins();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update account status.');
+    } finally {
+      setUpdatingAdminId(null);
+    }
+  };
+
+  // SuperAdmin: Toggle Granular Permission for an Administrator
+  const handleToggleAdminPermission = async (targetAdmin, permKey) => {
+    try {
+      setUpdatingAdminId(`${targetAdmin._id}-${permKey}`);
+      const updatedPerms = {
+        ...(targetAdmin.permissions || {}),
+        [permKey]: !targetAdmin.permissions?.[permKey]
+      };
+      await updateAdminPermissions(targetAdmin._id, updatedPerms);
+      showToast(`Updated permissions for ${targetAdmin.email}`);
+      await loadAdmins();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update permissions.');
+    } finally {
+      setUpdatingAdminId(null);
     }
   };
 
@@ -482,6 +656,8 @@ export default function AdminDashboard() {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminRole');
     localStorage.removeItem('adminEmail');
+    localStorage.removeItem('adminStatus');
+    localStorage.removeItem('adminPermissions');
     navigate('/admin/login');
   };
 
@@ -555,9 +731,19 @@ export default function AdminDashboard() {
                 <Crown className="w-3.5 h-3.5 text-amber-600" /> SuperAdmin
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                <Shield className="w-3 h-3 text-blue-600" /> Admin
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  <Shield className="w-3 h-3 text-blue-600" /> Admin
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsMyPermissionsModalOpen(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full transition cursor-pointer"
+                  title="View your granted capabilities and permissions"
+                >
+                  <SlidersHorizontal className="w-3 h-3 text-indigo-600" /> My Access Powers
+                </button>
+              </div>
             )}
 
             {/* Live Automated Publishing Indicator */}
@@ -582,7 +768,7 @@ export default function AdminDashboard() {
               }}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 px-3.5 py-2 rounded-lg transition shadow-2xs cursor-pointer"
             >
-              <Users className="w-3.5 h-3.5 text-indigo-600" /> Manage Admins
+              <Users className="w-3.5 h-3.5 text-indigo-600" /> Manage Admins & Permissions
             </button>
           )}
 
@@ -615,10 +801,23 @@ export default function AdminDashboard() {
           </Link>
 
           <button
-            onClick={() => openCreateModal('Published')}
-            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-xs cursor-pointer"
+            onClick={() => {
+              if (!canCreate) {
+                showToast('Permission Denied: You do not have permission to create articles.');
+                return;
+              }
+              openCreateModal('Published');
+            }}
+            disabled={!canCreate}
+            title={canCreate ? 'Create Article' : 'Permission to create blogs is restricted by SuperAdmin'}
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg transition shadow-xs cursor-pointer ${
+              canCreate
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+            }`}
           >
-            <Plus className="w-4 h-4" /> Create Article
+            {canCreate ? <Plus className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
+            Create Article
           </button>
 
           <button
@@ -958,22 +1157,44 @@ export default function AdminDashboard() {
                           {/* Quick Publish Now for Scheduled or Draft posts */}
                           {(isScheduled || isDraft) && (
                             <button
-                              onClick={() => handlePublishNow(blog)}
-                              title="Publish this article immediately without waiting for scheduled time"
-                              className="px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition cursor-pointer flex items-center gap-1"
+                              onClick={() => {
+                                if (!canEdit) {
+                                  showToast('Permission Denied: You do not have permission to edit/publish articles.');
+                                  return;
+                                }
+                                handlePublishNow(blog);
+                              }}
+                              disabled={!canEdit}
+                              title={canEdit ? 'Publish this article immediately without waiting for scheduled time' : 'Edit permission restricted by SuperAdmin'}
+                              className={`px-2 py-1 text-[11px] font-semibold rounded-md border transition flex items-center gap-1 ${
+                                canEdit
+                                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 cursor-pointer'
+                                  : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed opacity-60'
+                              }`}
                             >
-                              <Send className="w-3 h-3" /> Publish Now
+                              {canEdit ? <Send className="w-3 h-3" /> : <Lock className="w-3 h-3" />} Publish Now
                             </button>
                           )}
 
                           {/* Cancel Schedule button for Scheduled posts */}
                           {isScheduled && (
                             <button
-                              onClick={() => setCancelScheduleCandidate(blog)}
-                              title="Cancel scheduled publishing and return to Draft"
-                              className="px-2 py-1 text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition cursor-pointer flex items-center gap-1"
+                              onClick={() => {
+                                if (!canSchedule) {
+                                  showToast('Permission Denied: You do not have permission to manage scheduled articles.');
+                                  return;
+                                }
+                                setCancelScheduleCandidate(blog);
+                              }}
+                              disabled={!canSchedule}
+                              title={canSchedule ? 'Cancel scheduled publishing and return to Draft' : 'Schedule permission restricted by SuperAdmin'}
+                              className={`px-2 py-1 text-[11px] font-semibold rounded-md border transition flex items-center gap-1 ${
+                                canSchedule
+                                  ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200 cursor-pointer'
+                                  : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed opacity-60'
+                              }`}
                             >
-                              <RotateCcw className="w-3 h-3" /> Cancel Schedule
+                              {canSchedule ? <RotateCcw className="w-3 h-3" /> : <Lock className="w-3 h-3" />} Cancel Schedule
                             </button>
                           )}
 
@@ -992,9 +1213,20 @@ export default function AdminDashboard() {
                           {/* Toggle Draft / Published for Published posts */}
                           {isPublished && (
                             <button
-                              onClick={() => handleToggleStatus(blog)}
-                              title="Unpublish to Draft"
-                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition cursor-pointer"
+                              onClick={() => {
+                                if (!canEdit) {
+                                  showToast('Permission Denied: You do not have permission to edit articles.');
+                                  return;
+                                }
+                                handleToggleStatus(blog);
+                              }}
+                              disabled={!canEdit}
+                              title={canEdit ? 'Unpublish to Draft' : 'Edit permission restricted by SuperAdmin'}
+                              className={`p-1.5 rounded-md transition ${
+                                canEdit
+                                  ? 'text-slate-500 hover:text-amber-600 hover:bg-amber-50 cursor-pointer'
+                                  : 'text-slate-300 cursor-not-allowed opacity-60'
+                              }`}
                             >
                               <RotateCcw className="w-4 h-4" />
                             </button>
@@ -1002,20 +1234,42 @@ export default function AdminDashboard() {
 
                           {/* Edit Article */}
                           <button
-                            onClick={() => openEditModal(blog)}
-                            title="Edit article details and schedule"
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition cursor-pointer"
+                            onClick={() => {
+                              if (!canEdit) {
+                                showToast('Permission Denied: You do not have permission to edit articles.');
+                                return;
+                              }
+                              openEditModal(blog);
+                            }}
+                            disabled={!canEdit}
+                            title={canEdit ? 'Edit article details and schedule' : 'Edit permission restricted by SuperAdmin'}
+                            className={`p-1.5 rounded-md transition ${
+                              canEdit
+                                ? 'text-slate-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer'
+                                : 'text-slate-300 cursor-not-allowed opacity-60'
+                            }`}
                           >
-                            <Edit3 className="w-4 h-4" />
+                            {canEdit ? <Edit3 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
                           </button>
 
                           {/* Delete Article */}
                           <button
-                            onClick={() => setDeleteCandidate(blog)}
-                            title="Delete article"
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                            onClick={() => {
+                              if (!canDelete) {
+                                showToast('Permission Denied: You do not have permission to delete articles.');
+                                return;
+                              }
+                              setDeleteCandidate(blog);
+                            }}
+                            disabled={!canDelete}
+                            title={canDelete ? 'Delete article' : 'Delete permission restricted by SuperAdmin'}
+                            className={`p-1.5 rounded-md transition ${
+                              canDelete
+                                ? 'text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                : 'text-slate-300 cursor-not-allowed opacity-60'
+                            }`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {canDelete ? <Trash2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </td>
@@ -1105,53 +1359,67 @@ export default function AdminDashboard() {
             </div>
 
             {/* AI BLOG DRAFT ASSISTANT BOX */}
-            <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 border border-blue-200 rounded-xl p-4 mb-5 shadow-2xs">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Generate Draft with AI (Powered by Groq)
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
-                Provide a topic or brief summary. The AI will populate Title, Content, Cover Image, Tags, and Conclusion for you to review and edit before saving.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g., Implementing Resilient Serverless Schedulers with MongoDB"
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  disabled={isAiGenerating}
-                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-                />
-                <button
-                  type="button"
-                  onClick={handleGenerateWithAI}
-                  disabled={isAiGenerating}
-                  className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition shadow-xs cursor-pointer whitespace-nowrap"
-                >
-                  {isAiGenerating ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Drafting with AI...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-3.5 h-3.5" />
-                      Generate Draft
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {aiSuccessMessage && (
-                <div className="mt-2.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md p-2 flex items-center gap-1.5">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                  <span>{aiSuccessMessage}</span>
+            {!canUseAI ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5 shadow-2xs">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    AI Draft Assistant (Restricted)
+                  </span>
                 </div>
-              )}
-            </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  You currently do not have authorization to generate blog content using AI. This power can be enabled by the SuperAdministrator.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/60 border border-blue-200 rounded-xl p-4 mb-5 shadow-2xs">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Generate Draft with AI (Powered by Groq)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
+                  Provide a topic or brief summary. The AI will populate Title, Content, Cover Image, Tags, and Conclusion for you to review and edit before saving.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g., Implementing Resilient Serverless Schedulers with MongoDB"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    disabled={isAiGenerating}
+                    className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateWithAI}
+                    disabled={isAiGenerating}
+                    className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition shadow-xs cursor-pointer whitespace-nowrap"
+                  >
+                    {isAiGenerating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Drafting with AI...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-3.5 h-3.5" />
+                        Generate Draft
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {aiSuccessMessage && (
+                  <div className="mt-2.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md p-2 flex items-center gap-1.5">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    <span>{aiSuccessMessage}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Error Message inside modal */}
             {modalError && (
@@ -1357,18 +1625,22 @@ export default function AdminDashboard() {
 
                   {/* Option: Schedule Post */}
                   <label
-                    className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${
-                      status === 'Scheduled'
-                        ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 shadow-2xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100/60'
+                    className={`flex items-start gap-2.5 p-3 rounded-lg border transition ${
+                      !canSchedule
+                        ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                        : status === 'Scheduled'
+                        ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 shadow-2xs cursor-pointer'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100/60 cursor-pointer'
                     }`}
                   >
                     <input
                       type="radio"
                       name="postStatus"
                       value="Scheduled"
+                      disabled={!canSchedule}
                       checked={status === 'Scheduled'}
                       onChange={() => {
+                        if (!canSchedule) return;
                         setStatus('Scheduled');
                         if (!scheduledDateTime) {
                           setScheduledDateTime(getDefaultFutureDatetime(1));
@@ -1378,9 +1650,12 @@ export default function AdminDashboard() {
                     />
                     <div>
                       <div className="text-xs font-semibold flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-indigo-600" /> Schedule Post
+                        {canSchedule ? <Clock className="w-3.5 h-3.5 text-indigo-600" /> : <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                        Schedule Post {!canSchedule && <span className="text-[10px] text-rose-500 font-normal">(Restricted)</span>}
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Auto-release at selected time</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {canSchedule ? 'Auto-release at selected time' : 'Permission required to schedule'}
+                      </div>
                     </div>
                   </label>
 
@@ -1573,37 +1848,40 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* SUPERADMIN ONLY: ADMIN TEAM MANAGEMENT MODAL */}
+      {/* SUPERADMIN: TEAM MANAGEMENT & AUTHORIZATION MODAL */}
       {isAdminTeamModalOpen && isSuperAdmin && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 shadow-xl my-8 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-6 shadow-xl my-8 animate-in zoom-in-95 duration-150">
+            
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                  <Crown className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                  <Crown className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Administrator Team Management</h3>
-                  <p className="text-xs text-slate-500">Only the SuperAdmin can invite or manage admin accounts.</p>
+                  <h3 className="text-base font-bold text-slate-900">Administrator Authorization & Team Control</h3>
+                  <p className="text-xs text-slate-500">SuperAdmin authority: Create accounts, revoke access, and customize granular permissions per admin.</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsAdminTeamModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Create New Admin Form */}
-            <form onSubmit={handleCreateAdmin} className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-5 space-y-3">
+            <form onSubmit={handleCreateAdmin} className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 space-y-3">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <UserPlus className="w-3.5 h-3.5 text-blue-600" /> Create New Admin Account
+                <UserPlus className="w-3.5 h-3.5 text-blue-600" /> Create Administrator Account
               </div>
 
               {adminModalError && (
-                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
-                  {adminModalError}
+                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{adminModalError}</span>
                 </div>
               )}
 
@@ -1614,7 +1892,7 @@ export default function AdminDashboard() {
                   placeholder="admin-email@utsanova.com"
                   value={newAdminEmail}
                   onChange={(e) => setNewAdminEmail(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
                 />
                 <input
                   type="password"
@@ -1622,15 +1900,53 @@ export default function AdminDashboard() {
                   placeholder="New Admin Password"
                   value={newAdminPassword}
                   onChange={(e) => setNewAdminPassword(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
                 />
               </div>
 
-              <div className="flex justify-end pt-1">
+              {/* Initial Permissions Selector */}
+              <div className="pt-2">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Initial Powers Granted:
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  {[
+                    { key: 'canCreateBlog', label: 'Create Blogs' },
+                    { key: 'canEditBlog', label: 'Edit Blogs' },
+                    { key: 'canDeleteBlog', label: 'Delete Blogs' },
+                    { key: 'canUseAI', label: 'Use AI (Groq)' },
+                    { key: 'canScheduleBlog', label: 'Schedule Posts' }
+                  ].map((perm) => (
+                    <label
+                      key={perm.key}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer select-none transition text-xs ${
+                        newAdminPermissions[perm.key]
+                          ? 'bg-blue-50/70 border-blue-200 text-blue-800 font-medium'
+                          : 'bg-white border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newAdminPermissions[perm.key]}
+                        onChange={(e) =>
+                          setNewAdminPermissions((prev) => ({
+                            ...prev,
+                            [perm.key]: e.target.checked
+                          }))
+                        }
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>{perm.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
                 <button
                   type="submit"
                   disabled={creatingAdmin}
-                  className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {creatingAdmin ? (
                     <>
@@ -1638,55 +1954,178 @@ export default function AdminDashboard() {
                       Creating Account...
                     </>
                   ) : (
-                    'Add Admin Account'
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Add Administrator Account
+                    </>
                   )}
                 </button>
               </div>
             </form>
 
-            {/* Existing Admins List */}
+            {/* Existing Administrators List */}
             <div>
-              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                Existing Administrators ({adminList.length})
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Existing Administrators ({adminList.length})</span>
+                <span className="text-[11px] text-slate-400 font-normal">Click permission badges to toggle access in real-time</span>
               </div>
 
               {adminListLoading ? (
-                <div className="py-6 text-center text-xs text-slate-400">Loading admin accounts...</div>
+                <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  Loading admin accounts...
+                </div>
               ) : adminList.length === 0 ? (
-                <div className="py-6 text-center text-xs text-slate-400">No admin accounts found.</div>
+                <div className="py-8 text-center text-xs text-slate-400">No administrator accounts found.</div>
               ) : (
-                <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto border border-slate-200 rounded-lg">
-                  {adminList.map((adm) => (
-                    <div key={adm._id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
-                      <div>
-                        <div className="font-semibold text-slate-800">{adm.email}</div>
-                        <div className="text-[10px] text-slate-400">
-                          Joined: {new Date(adm.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {adminList.map((adm) => {
+                    const isTargetSuper = adm.role === 'superadmin';
+                    const isRevoked = adm.status === 'revoked' || adm.isActive === false;
 
-                      <div className="flex items-center gap-2">
-                        {adm.role === 'superadmin' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <Crown className="w-3 h-3 text-amber-600" /> SuperAdmin
-                          </span>
+                    return (
+                      <div
+                        key={adm._id}
+                        className={`p-3.5 border rounded-xl transition ${
+                          isRevoked
+                            ? 'bg-rose-50/40 border-rose-200'
+                            : isTargetSuper
+                            ? 'bg-amber-50/20 border-amber-200'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Admin Header Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-slate-900 text-xs">{adm.email}</span>
+                              
+                              {/* Role Badge */}
+                              {isTargetSuper ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full uppercase">
+                                  <Crown className="w-3 h-3 text-amber-600" /> SuperAdmin
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full uppercase">
+                                  <Shield className="w-3 h-3 text-blue-600" /> Admin
+                                </span>
+                              )}
+
+                              {/* Status Badge */}
+                              {isRevoked ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-full">
+                                  <Ban className="w-3 h-3 text-rose-600" /> Access Revoked
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Active Access
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              Registered: {new Date(adm.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+
+                          {/* Top Actions: Revoke / Restore / Delete */}
+                          {!isTargetSuper && (
+                            <div className="flex items-center gap-1.5 self-start sm:self-center">
+                              {/* Revoke / Restore Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAdminStatus(adm)}
+                                disabled={updatingAdminId === adm._id}
+                                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                                  isRevoked
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
+                                    : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                                }`}
+                                title={isRevoked ? 'Restore access to login and portal' : 'Revoke all access immediately'}
+                              >
+                                {updatingAdminId === adm._id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : isRevoked ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    Restore Access
+                                  </>
+                                ) : (
+                                  <>
+                                    <Ban className="w-3 h-3" />
+                                    Revoke Access
+                                  </>
+                                )}
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAdmin(adm._id, adm.email)}
+                                title="Permanently delete admin account"
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Granular Permissions Section */}
+                        {isTargetSuper ? (
+                          <div className="text-[11px] text-amber-700 font-medium bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                            SuperAdmin maintains unrestricted root authority across all articles, AI generation, and scheduling.
+                          </div>
                         ) : (
-                          <>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                              <Shield className="w-3 h-3 text-blue-600" /> Admin
-                            </span>
-                            <button
-                              onClick={() => handleDeleteAdmin(adm._id, adm.email)}
-                              title="Delete admin account"
-                              className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
+                          <div className="pt-2 border-t border-slate-100">
+                            <div className="text-[10px] uppercase font-bold text-slate-500 mb-1.5">
+                              Granular Permissions (Click to toggle):
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                { key: 'canCreateBlog', label: 'Create Blogs' },
+                                { key: 'canEditBlog', label: 'Edit Blogs' },
+                                { key: 'canDeleteBlog', label: 'Delete Blogs' },
+                                { key: 'canUseAI', label: 'AI Drafting' },
+                                { key: 'canScheduleBlog', label: 'Scheduling' }
+                              ].map((perm) => {
+                                const isGranted = adm.permissions?.[perm.key] !== false;
+                                const isToggling = updatingAdminId === `${adm._id}-${perm.key}`;
+
+                                return (
+                                  <button
+                                    key={perm.key}
+                                    type="button"
+                                    onClick={() => handleToggleAdminPermission(adm, perm.key)}
+                                    disabled={isToggling || isRevoked}
+                                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border flex items-center gap-1 transition cursor-pointer disabled:opacity-50 ${
+                                      isGranted
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                        : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+                                    }`}
+                                    title={`Click to ${isGranted ? 'revoke' : 'grant'} ${perm.label} permission`}
+                                  >
+                                    {isToggling ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : isGranted ? (
+                                      <Check className="w-3 h-3 text-emerald-600" />
+                                    ) : (
+                                      <Lock className="w-3 h-3 text-slate-400" />
+                                    )}
+                                    <span>{perm.label}</span>
+                                    <span className="text-[9px] uppercase font-bold tracking-tight opacity-75">
+                                      ({isGranted ? 'ON' : 'OFF'})
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1694,6 +2133,84 @@ export default function AdminDashboard() {
             <div className="mt-5 flex justify-end">
               <button
                 onClick={() => setIsAdminTeamModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REGULAR ADMIN: "MY ACCESS POWERS" MODAL */}
+      {isMyPermissionsModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Your Account Capabilities</h3>
+                  <p className="text-xs text-slate-500">Assigned by the SuperAdministrator</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMyPermissionsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 mb-5">
+              {[
+                { granted: canCreate, label: 'Create New Articles', desc: 'Author and save new blog posts' },
+                { granted: canEdit, label: 'Edit Articles', desc: 'Modify existing published, draft, and scheduled posts' },
+                { granted: canDelete, label: 'Delete Articles', desc: 'Permanently remove articles from the portal' },
+                { granted: canUseAI, label: 'Use AI Drafting Assistant', desc: 'Generate blog drafts with Groq AI' },
+                { granted: canSchedule, label: 'Schedule Automated Releases', desc: 'Set future publication dates for posts' },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border flex items-start gap-2.5 ${
+                    item.granted ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-70'
+                  }`}
+                >
+                  <div className="mt-0.5">
+                    {item.granted ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-rose-500" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                      <span>{item.label}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                          item.granted
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {item.granted ? 'Granted' : 'Restricted'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5 mb-4 leading-relaxed">
+              <strong>Need higher access?</strong> Ask your SuperAdministrator to grant the required permissions to your email.
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setIsMyPermissionsModalOpen(false)}
                 className="px-4 py-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition cursor-pointer"
               >
                 Close

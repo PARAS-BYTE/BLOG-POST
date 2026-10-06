@@ -17,34 +17,66 @@ const seedData = async () => {
         const superAdminEmail = 'superadmin@utsanova.com';
         const existingSuperAdmin = await Admin.findOne({ email: superAdminEmail });
 
+        const superAdminPermissions = {
+            canCreateBlog: true,
+            canEditBlog: true,
+            canDeleteBlog: true,
+            canUseAI: true,
+            canScheduleBlog: true
+        };
+
         if (!existingSuperAdmin) {
             const superAdmin = new Admin({
                 email: superAdminEmail,
                 password: 'superadmin@1234',
-                role: 'superadmin'
+                role: 'superadmin',
+                status: 'active',
+                isActive: true,
+                permissions: superAdminPermissions
             });
             await superAdmin.save();
             console.log('Default SuperAdmin Created (superadmin@utsanova.com / superadmin@1234)!');
         } else {
             existingSuperAdmin.role = 'superadmin';
+            existingSuperAdmin.status = 'active';
+            existingSuperAdmin.isActive = true;
+            existingSuperAdmin.permissions = superAdminPermissions;
             await existingSuperAdmin.save();
-            console.log('SuperAdmin account verified.');
+            console.log('SuperAdmin account verified and permissions initialized.');
         }
 
         // 2. Seed Regular Admin
         const adminEmail = 'admin@utsanova.com';
         const existingAdmin = await Admin.findOne({ email: adminEmail });
 
+        const regularAdminPermissions = {
+            canCreateBlog: true,
+            canEditBlog: true,
+            canDeleteBlog: true,
+            canUseAI: true,
+            canScheduleBlog: true
+        };
+
         if (!existingAdmin) {
             const admin = new Admin({
                 email: adminEmail,
                 password: 'admin@1234',
-                role: 'admin'
+                role: 'admin',
+                status: 'active',
+                isActive: true,
+                permissions: regularAdminPermissions
             });
             await admin.save();
             console.log('Default Admin Created (admin@utsanova.com / admin@1234)!');
         } else {
-            console.log('Default admin already exists.');
+            existingAdmin.role = 'admin';
+            if (!existingAdmin.status) existingAdmin.status = 'active';
+            if (existingAdmin.isActive === undefined) existingAdmin.isActive = true;
+            if (!existingAdmin.permissions || !existingAdmin.permissions.canCreateBlog) {
+                existingAdmin.permissions = regularAdminPermissions;
+            }
+            await existingAdmin.save();
+            console.log('Default admin verified.');
         }
 
         // 2. Seed Sample Blogs

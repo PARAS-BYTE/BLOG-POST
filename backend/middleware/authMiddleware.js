@@ -17,6 +17,14 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'Admin not found' });
             }
 
+            // Check if account has been revoked by SuperAdmin
+            if (req.admin.status === 'revoked' || req.admin.isActive === false) {
+                return res.status(403).json({
+                    message: 'Your administrator account access has been revoked by the SuperAdmin. Please contact your SuperAdministrator.',
+                    isRevoked: true
+                });
+            }
+
             next();
         } catch (error) {
             return res.status(401).json({ message: 'Not authorized, token failed' });
@@ -37,5 +45,39 @@ const requireSuperAdmin = (req, res, next) => {
     });
 };
 
-module.exports = { protect, requireSuperAdmin };
+const checkPermission = (permissionName) => {
+    return (req, res, next) => {
+        if (!req.admin) {
+            return res.status(401).json({ message: 'Not authenticated' });
+        }
+
+        // SuperAdmin possesses all permissions inherently
+        if (req.admin.role === 'superadmin') {
+            return next();
+        }
+
+        // Check if admin has the explicit permission
+        if (req.admin.permissions && req.admin.permissions[permissionName] === true) {
+            return next();
+        }
+
+        const permissionLabels = {
+            canCreateBlog: 'create new blog posts',
+            canEditBlog: 'edit blog posts',
+            canDeleteBlog: 'delete blog posts',
+            canUseAI: 'generate blogs using AI',
+            canScheduleBlog: 'schedule or cancel scheduled blog posts'
+        };
+
+        const readableLabel = permissionLabels[permissionName] || permissionName;
+
+        return res.status(403).json({
+            message: `Permission Denied: You do not have permission to ${readableLabel}. Contact the SuperAdmin to request access.`,
+            requiredPermission: permissionName
+        });
+    };
+};
+
+module.exports = { protect, requireSuperAdmin, checkPermission };
+
 

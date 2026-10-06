@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 const Groq = require('groq-sdk');
 
 // Generate Blog Content with AI using Groq (Protected)
 // Note: This endpoint does NOT save the blog to MongoDB; it only provides
 // pre-filled draft values (title, content, tags, conclusion) for the user to review.
-router.post('/ai-generate', protect, async (req, res) => {
+router.post('/ai-generate', protect, checkPermission('canUseAI'), async (req, res) => {
     try {
         const { topic } = req.body;
 
@@ -185,7 +185,7 @@ router.get('/admin/all', protect, async (req, res) => {
 
 // Schedule a blog post (Protected)
 // POST /api/blogs/:id/schedule
-router.post('/:id/schedule', protect, async (req, res) => {
+router.post('/:id/schedule', protect, checkPermission('canScheduleBlog'), async (req, res) => {
     try {
         const { scheduledAt } = req.body;
 
@@ -232,7 +232,7 @@ router.post('/:id/schedule', protect, async (req, res) => {
 
 // Cancel scheduling and revert to Draft (Protected)
 // POST /api/blogs/:id/cancel-schedule
-router.post('/:id/cancel-schedule', protect, async (req, res) => {
+router.post('/:id/cancel-schedule', protect, checkPermission('canScheduleBlog'), async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id);
         if (!blog) {
@@ -262,7 +262,7 @@ router.post('/:id/cancel-schedule', protect, async (req, res) => {
 });
 
 // Create new blog (Protected)
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, checkPermission('canCreateBlog'), async (req, res) => {
     try {
         const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
 
@@ -316,7 +316,7 @@ router.post('/', protect, async (req, res) => {
 
 // Update blog (Protected)
 // Safe editing for scheduled, draft, and published blogs
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, checkPermission('canEditBlog'), async (req, res) => {
     try {
         const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
 
@@ -389,7 +389,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Delete blog (Protected)
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, checkPermission('canDeleteBlog'), async (req, res) => {
     try {
         const deletedBlog = await Blog.findByIdAndDelete(req.params.id);
         if (!deletedBlog) {
