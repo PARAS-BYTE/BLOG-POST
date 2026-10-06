@@ -31,18 +31,14 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  XCircle,
   Search,
   ExternalLink,
   Plus,
-  Sparkles,
   LogOut,
-  ArrowLeft,
   Calendar,
   Activity,
   Zap,
   BookOpen,
-  Filter,
   CheckCircle,
   FileText,
   Layers,
@@ -50,13 +46,13 @@ import {
 } from 'lucide-react';
 
 /**
- * SuperAdministrator Command Center
- * A dedicated, separate administrative operations panel exclusively for SuperAdministrators.
- * Provides high-level control over:
+ * SuperAdministrator Command Center (Light Theme)
+ * A dedicated administrative operations panel designed exclusively for SuperAdministrators.
+ * Built with the platform's clean, modern light theme:
  * 1. Admin Personnel & Granular Authorization (RBAC)
  * 2. Platform-wide Editorial Oversight (Master Article Control)
  * 3. Automated Post Scheduler & Queue Engine (Live Cron Trigger & Status)
- * 4. System Audit Trail
+ * 4. Session Audit Trail
  */
 export default function SuperAdminPanel() {
   const navigate = useNavigate();
@@ -78,7 +74,7 @@ export default function SuperAdminPanel() {
     queueCount: 0
   });
 
-  // Feedback Notification
+  // Feedback Notification Toast
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info'); // 'info' | 'success' | 'error'
 
@@ -210,7 +206,7 @@ export default function SuperAdminPanel() {
     loadInitialData();
   }, []);
 
-  // Update computed metrics whenever admins, blogs, or queue status changes
+  // Compute metrics dynamically
   useEffect(() => {
     const totalAdmins = admins.length;
     const activeAdmins = admins.filter((a) => (a.status || (a.isActive ? 'active' : 'revoked')) === 'active').length;
@@ -298,7 +294,7 @@ export default function SuperAdminPanel() {
       await toggleAdminStatus(admin._id, newStatus);
       showToast(
         newStatus === 'revoked'
-          ? `Access Revoked: ${admin.email} is immediately banned.`
+          ? `Access Revoked: ${admin.email} is immediately suspended.`
           : `Access Restored: ${admin.email} is now active.`,
         'success'
       );
@@ -497,30 +493,30 @@ export default function SuperAdminPanel() {
   const scheduledBlogsQueue = blogs.filter((b) => b.status === 'Scheduled');
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans pb-16">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pb-16">
       
       {/* ====================================================
-          SUPERADMIN TOP MASTER BANNER & CONTROLS
+          SUPERADMIN TOP MASTER BANNER & CONTROLS (LIGHT THEME)
           ==================================================== */}
-      <section className="bg-[#080d1a] border-b border-slate-800 sticky top-0 z-30 shadow-xl backdrop-blur-md bg-opacity-95">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <section className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           
           {/* Identity & Crown Badge */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/25">
-              <Crown className="w-6 h-6 text-slate-950" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-900 font-black shadow-sm">
+              <Crown className="w-5 h-5 text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
                   SuperAdministrator Command Center
                 </h1>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  <Shield className="w-3 h-3 text-amber-400" /> Master Clearance
+                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300">
+                  <Shield className="w-3 h-3 text-amber-600" /> Master Clearance
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Logged in as <span className="text-amber-300 font-semibold">{currentUser?.email || 'superadmin@utsanova.com'}</span> • Role-Based Access & Operations
+              <p className="text-xs text-slate-500">
+                Logged in as <strong className="text-slate-800">{currentUser?.email || 'superadmin@utsanova.com'}</strong> • Role-Based Access Control & Operations
               </p>
             </div>
           </div>
@@ -529,10 +525,10 @@ export default function SuperAdminPanel() {
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <Link
               to="/admin/dashboard"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition shadow-2xs"
               title="Switch to Standard Editorial Dashboard to write articles"
             >
-              <FileText className="w-3.5 h-3.5 text-blue-400" />
+              <FileText className="w-3.5 h-3.5 text-blue-600" />
               <span>Editorial Workspace</span>
             </Link>
 
@@ -540,7 +536,7 @@ export default function SuperAdminPanel() {
               to="/"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition shadow-2xs"
               title="View Public Blog Website"
             >
               <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
@@ -549,7 +545,7 @@ export default function SuperAdminPanel() {
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 hover:border-rose-700 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition shadow-2xs cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -561,36 +557,26 @@ export default function SuperAdminPanel() {
       </section>
 
       {/* ====================================================
-          GLOBAL EXECUTIVE KPI TILES
+          GLOBAL EXECUTIVE KPI TILES (LIGHT THEME)
           ==================================================== */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-2 w-full">
         
         {/* Floating Toast Notification */}
         {toastMessage && (
-          <div
-            className={`mb-5 p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium shadow-lg animate-fadeIn ${
-              toastType === 'error'
-                ? 'bg-rose-950/80 border-rose-700 text-rose-200'
-                : toastType === 'info'
-                ? 'bg-blue-950/80 border-blue-700 text-blue-200'
-                : 'bg-emerald-950/80 border-emerald-700 text-emerald-200'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {toastType === 'error' ? (
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              ) : toastType === 'info' ? (
-                <AlertTriangle className="w-4 h-4 text-blue-400 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              )}
-              <span>{toastMessage}</span>
-            </div>
+          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+            {toastType === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : toastType === 'info' ? (
+              <AlertTriangle className="w-4 h-4 text-blue-400 shrink-0" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span>{toastMessage}</span>
             <button
               onClick={() => setToastMessage('')}
-              className="text-slate-400 hover:text-white ml-3 p-1"
+              className="text-slate-400 hover:text-white ml-2 p-0.5"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           </div>
         )}
@@ -599,20 +585,20 @@ export default function SuperAdminPanel() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
           
           {/* Card 1: Admins */}
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-sm hover:border-slate-600 transition">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Administrators</span>
-              <Users className="w-4 h-4 text-blue-400" />
+              <Users className="w-4 h-4 text-blue-600" />
             </div>
-            <div className="text-2xl font-black text-white">{metrics.totalAdmins}</div>
-            <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2">
-              <span className="text-emerald-400 flex items-center gap-1 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <div className="text-2xl font-bold text-slate-900">{metrics.totalAdmins}</div>
+            <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2">
+              <span className="text-emerald-700 flex items-center gap-1 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 {metrics.activeAdmins} Active
               </span>
               {metrics.revokedAdmins > 0 && (
-                <span className="text-rose-400 flex items-center gap-1 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                <span className="text-rose-700 flex items-center gap-1 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                   {metrics.revokedAdmins} Revoked
                 </span>
               )}
@@ -620,43 +606,43 @@ export default function SuperAdminPanel() {
           </div>
 
           {/* Card 2: Live Articles */}
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-sm hover:border-slate-600 transition">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Live Articles</span>
-              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <BookOpen className="w-4 h-4 text-emerald-600" />
             </div>
-            <div className="text-2xl font-black text-emerald-400">{metrics.publishedBlogs}</div>
-            <div className="text-[11px] text-slate-400 mt-2">
-              Total platform content: <strong className="text-slate-200">{metrics.totalBlogs}</strong>
+            <div className="text-2xl font-bold text-emerald-600">{metrics.publishedBlogs}</div>
+            <div className="text-[11px] text-slate-500 mt-2">
+              Total platform content: <strong className="text-slate-700">{metrics.totalBlogs}</strong>
             </div>
           </div>
 
           {/* Card 3: Scheduled Queue */}
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-sm hover:border-slate-600 transition">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Scheduled Queue</span>
-              <Clock className="w-4 h-4 text-purple-400" />
+              <Clock className="w-4 h-4 text-purple-600" />
             </div>
-            <div className="text-2xl font-black text-purple-400">{metrics.scheduledBlogs}</div>
-            <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-2">
+            <div className="text-2xl font-bold text-purple-600">{metrics.scheduledBlogs}</div>
+            <div className="text-[11px] text-slate-500 mt-2 flex items-center gap-2">
               <span>{metrics.draftBlogs} Drafts</span>
               <span>•</span>
-              <span className="text-amber-400">{metrics.failedBlogs} Failed</span>
+              <span className="text-amber-600">{metrics.failedBlogs} Failed</span>
             </div>
           </div>
 
           {/* Card 4: Automated Scheduler Engine */}
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-sm hover:border-slate-600 transition">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Scheduler Engine</span>
-              <Zap className="w-4 h-4 text-amber-400" />
+              <Zap className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="text-sm font-bold text-white flex items-center gap-1.5 mt-1">
+            <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mt-1">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Autonomous Worker
             </div>
-            <div className="text-[11px] text-slate-400 mt-2">
-              Cron: <span className="text-amber-300 font-mono">Every 10 min</span> + Instant trigger
+            <div className="text-[11px] text-slate-500 mt-2">
+              Cron: <span className="text-indigo-600 font-semibold">Every 10 min</span> + Instant trigger
             </div>
           </div>
 
@@ -665,20 +651,20 @@ export default function SuperAdminPanel() {
         {/* ====================================================
             WORKSPACE TABS NAVIGATION
             ==================================================== */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-6">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-6">
           <div className="flex items-center gap-1 sm:gap-2">
             
             <button
               onClick={() => setActiveTab('personnel')}
               className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                 activeTab === 'personnel'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Users className="w-4 h-4" />
               <span>Admin Personnel & Access</span>
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
                 {admins.length}
               </span>
             </button>
@@ -687,13 +673,13 @@ export default function SuperAdminPanel() {
               onClick={() => setActiveTab('editorial')}
               className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                 activeTab === 'editorial'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Layers className="w-4 h-4" />
               <span>Editorial Master Control</span>
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
                 {blogs.length}
               </span>
             </button>
@@ -702,13 +688,13 @@ export default function SuperAdminPanel() {
               onClick={() => setActiveTab('scheduler')}
               className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                 activeTab === 'scheduler'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Zap className="w-4 h-4" />
               <span>Scheduler & Queue Ops</span>
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
                 {scheduledBlogsQueue.length}
               </span>
             </button>
@@ -718,10 +704,10 @@ export default function SuperAdminPanel() {
           {/* Quick Refresh Data button */}
           <button
             onClick={loadInitialData}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 transition border border-slate-700/60 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 transition border border-slate-200 shadow-2xs cursor-pointer"
             title="Refresh All Operations Data"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
@@ -735,13 +721,13 @@ export default function SuperAdminPanel() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full space-y-6">
           
           {/* Section Sub-Header & Controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/40 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Shield className="w-4 h-4 text-amber-400" />
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-600" />
                 Administrator Personnel & RBAC Authorization
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Grant or revoke granular system permissions (Create, Edit, Delete, AI Groq, Schedule) and manage access states.
               </p>
             </div>
@@ -755,14 +741,14 @@ export default function SuperAdminPanel() {
                   placeholder="Filter by email or role..."
                   value={adminSearch}
                   onChange={(e) => setAdminSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-900 border border-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition w-48 sm:w-56"
+                  className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition w-48 sm:w-56"
                 />
               </div>
 
               {/* Add New Admin Button */}
               <button
                 onClick={() => setIsAddAdminOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Create Admin</span>
@@ -770,30 +756,30 @@ export default function SuperAdminPanel() {
             </div>
           </div>
 
-          {/* New Admin Creation Drawer/Modal */}
+          {/* New Admin Creation Form */}
           {isAddAdminOpen && (
-            <div className="bg-slate-800 border border-amber-500/40 rounded-2xl p-5 shadow-xl animate-fadeIn">
-              <div className="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+            <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                     <UserPlus className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Create New Administrator Account</h3>
-                    <p className="text-[11px] text-slate-400">Configure custom initial permissions upon account provision.</p>
+                    <h3 className="text-sm font-bold text-slate-900">Create New Administrator Account</h3>
+                    <p className="text-[11px] text-slate-500">Configure custom initial permissions upon account provision.</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsAddAdminOpen(false)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {adminFormError && (
-                <div className="mb-4 p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                   <span>{adminFormError}</span>
                 </div>
               )}
@@ -801,7 +787,7 @@ export default function SuperAdminPanel() {
               <form onSubmit={handleCreateAdminSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                       Administrator Email
                     </label>
                     <input
@@ -810,12 +796,12 @@ export default function SuperAdminPanel() {
                       placeholder="writer@utsanova.com"
                       value={newAdminEmail}
                       onChange={(e) => setNewAdminEmail(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                       Secure Temporary Password
                     </label>
                     <input
@@ -824,16 +810,16 @@ export default function SuperAdminPanel() {
                       placeholder="Minimum 6 characters"
                       value={newAdminPassword}
                       onChange={(e) => setNewAdminPassword(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                     />
                   </div>
                 </div>
 
                 {/* Granular Initial Permissions */}
-                <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <SlidersHorizontal className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                    <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                       Initial Granular Privileges
                     </span>
                   </div>
@@ -850,12 +836,12 @@ export default function SuperAdminPanel() {
                         key={perm.key}
                         className={`flex flex-col p-2.5 rounded-xl border text-xs cursor-pointer transition select-none ${
                           newAdminPermissions[perm.key]
-                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
-                            : 'bg-slate-800/40 border-slate-700 text-slate-400'
+                            ? 'bg-blue-50/70 border-blue-300 text-blue-900'
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-white">{perm.label}</span>
+                          <span className="font-semibold text-slate-800">{perm.label}</span>
                           <input
                             type="checkbox"
                             checked={newAdminPermissions[perm.key]}
@@ -865,10 +851,10 @@ export default function SuperAdminPanel() {
                                 [perm.key]: e.target.checked
                               }))
                             }
-                            className="rounded border-slate-600 text-amber-500 focus:ring-amber-400 w-3.5 h-3.5"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
                           />
                         </div>
-                        <span className="text-[10px] text-slate-400">{perm.desc}</span>
+                        <span className="text-[10px] text-slate-500">{perm.desc}</span>
                       </label>
                     ))}
                   </div>
@@ -878,14 +864,14 @@ export default function SuperAdminPanel() {
                   <button
                     type="button"
                     onClick={() => setIsAddAdminOpen(false)}
-                    className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                    className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 rounded-xl bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creatingAdmin}
-                    className="px-5 py-2 text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {creatingAdmin ? (
                       <>
@@ -901,19 +887,19 @@ export default function SuperAdminPanel() {
           )}
 
           {/* Admin Directory Table / Cards */}
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-700 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 Registered Administrative Accounts ({filteredAdmins.length})
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-500">
                 Click any permission tag below to toggle access immediately
               </span>
             </div>
 
             {adminsLoading ? (
-              <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
-                <RefreshCw className="w-6 h-6 animate-spin text-amber-400 mb-2" />
+              <div className="p-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center">
+                <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mb-2" />
                 Loading administrator accounts...
               </div>
             ) : filteredAdmins.length === 0 ? (
@@ -921,7 +907,7 @@ export default function SuperAdminPanel() {
                 No administrators found matching your search.
               </div>
             ) : (
-              <div className="divide-y divide-slate-700/60">
+              <div className="divide-y divide-slate-100">
                 {filteredAdmins.map((admin) => {
                   const isCurrentSuper = admin.role === 'superadmin';
                   const adminStatus = admin.status || (admin.isActive ? 'active' : 'revoked');
@@ -939,7 +925,7 @@ export default function SuperAdminPanel() {
                     <div
                       key={admin._id}
                       className={`p-4 sm:p-5 transition flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                        isRevoked ? 'bg-rose-950/20' : 'hover:bg-slate-800/80'
+                        isRevoked ? 'bg-rose-50/30' : 'hover:bg-slate-50/70'
                       }`}
                     >
                       {/* Identity & Status */}
@@ -947,10 +933,10 @@ export default function SuperAdminPanel() {
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                             isCurrentSuper
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-300'
                               : isRevoked
-                              ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                              : 'bg-blue-50 text-blue-600 border border-blue-200'
                           }`}
                         >
                           {isCurrentSuper ? (
@@ -964,31 +950,31 @@ export default function SuperAdminPanel() {
 
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-white">{admin.email}</span>
+                            <span className="text-sm font-bold text-slate-900">{admin.email}</span>
                             {isCurrentSuper ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-300">
                                 SuperAdministrator
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-50 text-blue-700 border border-blue-200">
                                 Administrator
                               </span>
                             )}
 
                             {/* Status Badge */}
                             {isRevoked ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
-                                <XCircle className="w-3 h-3 text-rose-400" /> Revoked (Suspended)
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3 text-rose-500" /> Revoked (Suspended)
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3 text-emerald-400" /> Active
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-emerald-500" /> Active
                               </span>
                             )}
                           </div>
 
-                          <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
-                            <span>ID: <code className="text-slate-300 font-mono text-[10px]">{admin._id}</code></span>
+                          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3">
+                            <span>ID: <code className="text-slate-600 font-mono text-[10px]">{admin._id}</code></span>
                             {admin.createdAt && (
                               <span>Created: {new Date(admin.createdAt).toLocaleDateString()}</span>
                             )}
@@ -1015,10 +1001,10 @@ export default function SuperAdminPanel() {
                                 onClick={() => handleToggleSinglePermission(admin, key)}
                                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition ${
                                   isCurrentSuper
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-default'
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-300 cursor-default'
                                     : isAllowed
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 cursor-pointer'
-                                    : 'bg-slate-800 text-slate-500 border border-slate-700 hover:border-slate-600 hover:text-slate-400 line-through cursor-pointer'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer'
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200 hover:border-slate-300 hover:text-slate-600 line-through cursor-pointer'
                                 } ${isRevoked ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 title={
                                   isCurrentSuper
@@ -1029,9 +1015,9 @@ export default function SuperAdminPanel() {
                                 }
                               >
                                 {isAllowed ? (
-                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <Check className="w-3 h-3 text-emerald-600" />
                                 ) : (
-                                  <X className="w-3 h-3 text-slate-500" />
+                                  <X className="w-3 h-3 text-slate-400" />
                                 )}
                                 <span>{label}</span>
                               </button>
@@ -1041,16 +1027,16 @@ export default function SuperAdminPanel() {
 
                         {/* Action Buttons (Revoke/Restore, Delete) */}
                         {!isCurrentSuper && (
-                          <div className="flex items-center gap-2 mt-2 sm:mt-0 pl-2 sm:border-l sm:border-slate-700">
+                          <div className="flex items-center gap-2 mt-2 sm:mt-0 pl-2 sm:border-l sm:border-slate-200">
                             {/* Revoke / Restore Button */}
                             <button
                               type="button"
                               disabled={isUpdating}
                               onClick={() => handleToggleAdminStatus(admin)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
                                 isRevoked
-                                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
-                                  : 'bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60'
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
                               }`}
                               title={isRevoked ? 'Restore admin access' : 'Immediately revoke all access'}
                             >
@@ -1060,7 +1046,7 @@ export default function SuperAdminPanel() {
                                 </>
                               ) : (
                                 <>
-                                  <UserX className="w-3.5 h-3.5 text-rose-400" /> Revoke
+                                  <UserX className="w-3.5 h-3.5 text-rose-600" /> Revoke
                                 </>
                               )}
                             </button>
@@ -1069,7 +1055,7 @@ export default function SuperAdminPanel() {
                             <button
                               type="button"
                               onClick={() => setDeleteAdminTarget(admin)}
-                              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700/60 transition cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer"
                               title="Permanently Delete Admin"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1095,13 +1081,13 @@ export default function SuperAdminPanel() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full space-y-6">
           
           {/* Controls Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/40 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-2xl shadow-xs">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-amber-400" />
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-blue-600" />
                 Platform Content & Article Oversight
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Master oversight across all articles. SuperAdministrator can instantly publish, unpublish, cancel schedule, or delete any post.
               </p>
             </div>
@@ -1115,7 +1101,7 @@ export default function SuperAdminPanel() {
                   placeholder="Search articles by title, tag, author..."
                   value={blogSearch}
                   onChange={(e) => setBlogSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-900 border border-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition w-56 sm:w-64"
+                  className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition w-56 sm:w-64"
                 />
               </div>
 
@@ -1123,7 +1109,7 @@ export default function SuperAdminPanel() {
               <select
                 value={blogStatusFilter}
                 onChange={(e) => setBlogStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs bg-slate-900 border border-slate-700 text-slate-200 focus:outline-none focus:border-amber-400 transition"
+                className="px-3 py-1.5 rounded-xl text-xs bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer"
               >
                 <option value="ALL">All Statuses ({blogs.length})</option>
                 <option value="Published">Published ({metrics.publishedBlogs})</option>
@@ -1131,14 +1117,24 @@ export default function SuperAdminPanel() {
                 <option value="Draft">Draft ({metrics.draftBlogs})</option>
                 <option value="Failed">Failed ({metrics.failedBlogs})</option>
               </select>
+
+              {/* Author New Article */}
+              <Link
+                to="/admin/dashboard"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs"
+                title="Launch article authoring with Cloudinary image uploader"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Article</span>
+              </Link>
             </div>
           </div>
 
           {/* Master Articles Table */}
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/80 border-b border-slate-700 text-slate-400 uppercase tracking-wider font-semibold">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="px-5 py-3.5">Article</th>
                     <th className="px-4 py-3.5">Status</th>
@@ -1147,11 +1143,11 @@ export default function SuperAdminPanel() {
                     <th className="px-5 py-3.5 text-right">SuperAdmin Master Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/60">
+                <tbody className="divide-y divide-slate-100">
                   {blogsLoading ? (
                     <tr>
-                      <td colSpan="5" className="p-12 text-center text-slate-400">
-                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-amber-400 mb-2" />
+                      <td colSpan="5" className="p-12 text-center text-slate-500">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
                         Loading articles...
                       </td>
                     </tr>
@@ -1166,23 +1162,23 @@ export default function SuperAdminPanel() {
                       const isActioning = actionInProgressBlogId === blog._id;
 
                       return (
-                        <tr key={blog._id} className="hover:bg-slate-800/80 transition">
+                        <tr key={blog._id} className="hover:bg-slate-50/80 transition">
                           {/* Title & Tags */}
                           <td className="px-5 py-4 max-w-xs sm:max-w-md">
-                            <div className="font-bold text-white text-sm line-clamp-1">
+                            <div className="font-bold text-slate-900 text-sm line-clamp-1">
                               {blog.title}
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
                               {blog.tags?.slice(0, 3).map((tag, i) => (
                                 <span
                                   key={i}
-                                  className="px-2 py-0.5 rounded-full text-[10px] bg-slate-700/80 text-slate-300 font-medium"
+                                  className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 font-medium"
                                 >
                                   #{tag}
                                 </span>
                               ))}
                               {blog.tags?.length > 3 && (
-                                <span className="text-[10px] text-slate-500">
+                                <span className="text-[10px] text-slate-400">
                                   +{blog.tags.length - 3} more
                                 </span>
                               )}
@@ -1192,47 +1188,47 @@ export default function SuperAdminPanel() {
                           {/* Status Badge */}
                           <td className="px-4 py-4 whitespace-nowrap">
                             {blog.status === 'Published' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 w-fit">
-                                <CheckCircle className="w-3 h-3 text-emerald-400" /> Published
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                <CheckCircle className="w-3 h-3 text-emerald-600" /> Published
                               </span>
                             )}
                             {blog.status === 'Scheduled' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1 w-fit animate-pulse">
-                                <Clock className="w-3 h-3 text-purple-400" /> Scheduled
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 w-fit animate-pulse">
+                                <Clock className="w-3 h-3 text-purple-600" /> Scheduled
                               </span>
                             )}
                             {blog.status === 'Draft' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase bg-slate-700 text-slate-300 border border-slate-600 flex items-center gap-1 w-fit">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
                                 Draft
                               </span>
                             )}
                             {blog.status === 'Failed' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 w-fit">
-                                <AlertTriangle className="w-3 h-3 text-rose-400" /> Failed
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
+                                <AlertTriangle className="w-3 h-3 text-rose-600" /> Failed
                               </span>
                             )}
                             {blog.status === 'Processing' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 w-fit">
-                                <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" /> Processing
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit">
+                                <RefreshCw className="w-3 h-3 text-amber-600 animate-spin" /> Processing
                               </span>
                             )}
                           </td>
 
                           {/* Author */}
-                          <td className="px-4 py-4 whitespace-nowrap text-slate-300">
-                            <div className="font-semibold">{blog.author?.email || 'Administrator'}</div>
+                          <td className="px-4 py-4 whitespace-nowrap text-slate-700">
+                            <div className="font-semibold text-slate-900">{blog.author?.email || 'Administrator'}</div>
                             <div className="text-[10px] text-slate-500">{blog.author?.role || 'admin'}</div>
                           </td>
 
                           {/* Timing */}
-                          <td className="px-4 py-4 whitespace-nowrap text-slate-400 text-[11px]">
+                          <td className="px-4 py-4 whitespace-nowrap text-slate-500 text-[11px]">
                             {blog.status === 'Scheduled' && blog.scheduledAt ? (
-                              <div className="text-purple-300 font-medium flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-purple-400" />
+                              <div className="text-purple-700 font-medium flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-purple-600" />
                                 {new Date(blog.scheduledAt).toLocaleString()}
                               </div>
                             ) : blog.status === 'Published' && blog.publishedAt ? (
-                              <div className="text-slate-300">
+                              <div className="text-slate-700">
                                 {new Date(blog.publishedAt).toLocaleDateString()}
                               </div>
                             ) : (
@@ -1252,7 +1248,7 @@ export default function SuperAdminPanel() {
                                   type="button"
                                   disabled={isActioning}
                                   onClick={() => handleForcePublishBlog(blog)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1 shadow-2xs cursor-pointer"
                                   title="Force publish now without waiting"
                                 >
                                   <Zap className="w-3 h-3" />
@@ -1266,7 +1262,7 @@ export default function SuperAdminPanel() {
                                   type="button"
                                   disabled={isActioning}
                                   onClick={() => handleRevertToDraft(blog)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition cursor-pointer"
                                   title="Unpublish article back to Draft"
                                 >
                                   Revert to Draft
@@ -1279,7 +1275,7 @@ export default function SuperAdminPanel() {
                                   type="button"
                                   disabled={isActioning}
                                   onClick={() => handleCancelScheduledBlog(blog)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition cursor-pointer"
                                   title="Cancel schedule and return to Draft"
                                 >
                                   Cancel Schedule
@@ -1292,7 +1288,7 @@ export default function SuperAdminPanel() {
                                   to={`/blog/${blog._id}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition"
                                   title="View Public Post"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
@@ -1303,7 +1299,7 @@ export default function SuperAdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => setDeleteBlogTarget(blog)}
-                                className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition cursor-pointer"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer"
                                 title="Purge Article"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1330,15 +1326,15 @@ export default function SuperAdminPanel() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full space-y-6">
           
           {/* Header Card with Force Run Action */}
-          <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-xs">
             <div>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
                   <Zap className="w-4 h-4" />
                 </div>
-                <h2 className="text-base font-bold text-white">Automated Scheduler & Publishing Queue</h2>
+                <h2 className="text-base font-bold text-slate-900">Automated Scheduler & Publishing Queue</h2>
               </div>
-              <p className="text-xs text-slate-400 mt-1 max-w-xl">
+              <p className="text-xs text-slate-500 mt-1 max-w-xl">
                 The zero-human-intervention worker runs on node-cron every 10 minutes to publish due posts.
                 As SuperAdministrator, you can inspect the live queue and force-run execution on-demand.
               </p>
@@ -1349,7 +1345,7 @@ export default function SuperAdminPanel() {
                 type="button"
                 disabled={triggeringCron}
                 onClick={handleExecuteSchedulerNow}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {triggeringCron ? (
                   <>
@@ -1358,7 +1354,7 @@ export default function SuperAdminPanel() {
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4 fill-slate-950" />
+                    <Play className="w-4 h-4 fill-white" />
                     Execute Scheduler Now
                   </>
                 )}
@@ -1368,19 +1364,19 @@ export default function SuperAdminPanel() {
 
           {/* Cron Execution Last Result (if triggered) */}
           {cronResult && (
-            <div className="p-4 bg-emerald-950/40 border border-emerald-700/60 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                 <div>
-                  <div className="font-bold text-emerald-200">
+                  <div className="font-bold text-emerald-800">
                     Cron Execution Completed Successfully
                   </div>
-                  <div className="text-emerald-300 text-[11px] mt-0.5">
+                  <div className="text-emerald-700 text-[11px] mt-0.5">
                     Published: <strong>{cronResult.publishedCount || 0}</strong> • Failed: <strong>{cronResult.failedCount || 0}</strong> • Duration: <strong>{cronResult.durationMs || 0}ms</strong>
                   </div>
                 </div>
               </div>
-              <span className="text-emerald-400 font-mono text-[11px]">
+              <span className="text-emerald-700 font-mono text-[11px]">
                 {new Date().toLocaleTimeString()}
               </span>
             </div>
@@ -1389,45 +1385,45 @@ export default function SuperAdminPanel() {
           {/* Queue Statistics Tiles */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
-            <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                 Queue Status
               </span>
-              <div className="text-2xl font-black text-purple-400">
+              <div className="text-2xl font-bold text-purple-600">
                 {queueStatus?.scheduledQueueCount ?? scheduledBlogsQueue.length}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Articles currently queued for publishing</p>
+              <p className="text-[11px] text-slate-500 mt-1">Articles currently queued for publishing</p>
             </div>
 
-            <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                 Processing State
               </span>
-              <div className="text-2xl font-black text-amber-400">
+              <div className="text-2xl font-bold text-amber-600">
                 {queueStatus?.processingCount ?? 0}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Active worker lock threads</p>
+              <p className="text-[11px] text-slate-500 mt-1">Active worker lock threads</p>
             </div>
 
-            <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl shadow-xs">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                 Failed Queue
               </span>
-              <div className="text-2xl font-black text-rose-400">
+              <div className="text-2xl font-bold text-rose-600">
                 {queueStatus?.failedCount ?? metrics.failedBlogs}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Articles requiring review</p>
+              <p className="text-[11px] text-slate-500 mt-1">Articles requiring review</p>
             </div>
 
           </div>
 
           {/* Active Queued Articles Table */}
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-700 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 Queued Scheduled Articles ({scheduledBlogsQueue.length})
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-500">
                 Server Time: {new Date().toLocaleTimeString()}
               </span>
             </div>
@@ -1437,7 +1433,7 @@ export default function SuperAdminPanel() {
                 No articles currently waiting in the schedule queue.
               </div>
             ) : (
-              <div className="divide-y divide-slate-700/60">
+              <div className="divide-y divide-slate-100">
                 {scheduledBlogsQueue.map((item) => {
                   const scheduleTime = item.scheduledAt ? new Date(item.scheduledAt) : null;
                   const isDue = scheduleTime && scheduleTime.getTime() <= Date.now();
@@ -1445,24 +1441,24 @@ export default function SuperAdminPanel() {
                   return (
                     <div
                       key={item._id}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-800 transition"
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition"
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-sm">{item.title}</span>
+                          <span className="font-bold text-slate-900 text-sm">{item.title}</span>
                           {isDue ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
                               Due Now
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-purple-50 text-purple-700 border border-purple-200">
                               Upcoming
                             </span>
                           )}
                         </div>
 
-                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
-                          <span className="flex items-center gap-1 text-purple-300">
+                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+                          <span className="flex items-center gap-1 text-purple-700 font-medium">
                             <Clock className="w-3.5 h-3.5" />
                             Target: {scheduleTime ? scheduleTime.toLocaleString() : 'Not set'}
                           </span>
@@ -1474,14 +1470,14 @@ export default function SuperAdminPanel() {
                         <button
                           type="button"
                           onClick={() => handleForcePublishBlog(item)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1 shadow-2xs cursor-pointer"
                         >
                           <Zap className="w-3 h-3" /> Publish Now
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCancelScheduledBlog(item)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition cursor-pointer"
                         >
                           Cancel Schedule
                         </button>
@@ -1493,11 +1489,11 @@ export default function SuperAdminPanel() {
             )}
           </div>
 
-          {/* Audit Log / Activity Trail */}
-          <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5">
+          {/* Session Audit Trail */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
             <div className="flex items-center gap-2 mb-3">
-              <Activity className="w-4 h-4 text-amber-400" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              <Activity className="w-4 h-4 text-blue-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 Session Audit Trail
               </h3>
             </div>
@@ -1511,13 +1507,13 @@ export default function SuperAdminPanel() {
                 {activityLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="flex items-start justify-between text-xs p-2 rounded-lg bg-slate-900/60 border border-slate-800"
+                    className="flex items-start justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200"
                   >
                     <div>
-                      <span className="font-bold text-amber-400">{log.action}: </span>
-                      <span className="text-slate-300">{log.details}</span>
+                      <span className="font-bold text-slate-900">{log.action}: </span>
+                      <span className="text-slate-600">{log.details}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono shrink-0 ml-3">
+                    <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-3">
                       {log.timestamp}
                     </span>
                   </div>
@@ -1533,30 +1529,30 @@ export default function SuperAdminPanel() {
           CONFIRMATION MODAL: DELETE ADMIN
           ==================================================== */}
       {deleteAdminTarget && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fadeIn">
-            <div className="flex items-center gap-3 text-rose-400 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-rose-400" />
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full shadow-xl animate-fadeIn">
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-rose-600" />
               </div>
-              <h3 className="text-base font-bold text-white">Permanently Delete Admin?</h3>
+              <h3 className="text-base font-bold text-slate-900">Permanently Delete Admin?</h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to delete administrator account{' '}
-              <strong className="text-white">{deleteAdminTarget.email}</strong>? This action cannot be undone.
+              <strong className="text-slate-900">{deleteAdminTarget.email}</strong>? This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3 mt-6">
               <button
                 type="button"
                 onClick={() => setDeleteAdminTarget(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 transition"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteAdmin}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition shadow-sm cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition shadow-xs cursor-pointer"
               >
                 Delete Account
               </button>
@@ -1569,30 +1565,30 @@ export default function SuperAdminPanel() {
           CONFIRMATION MODAL: PURGE ARTICLE
           ==================================================== */}
       {deleteBlogTarget && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fadeIn">
-            <div className="flex items-center gap-3 text-rose-400 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-rose-400" />
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full shadow-xl animate-fadeIn">
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-rose-600" />
               </div>
-              <h3 className="text-base font-bold text-white">Purge Article Permanently?</h3>
+              <h3 className="text-base font-bold text-slate-900">Purge Article Permanently?</h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to permanently delete{' '}
-              <strong className="text-white">"{deleteBlogTarget.title}"</strong>? It will be removed from all public listings and queues.
+              <strong className="text-slate-900">"{deleteBlogTarget.title}"</strong>? It will be removed from all public listings and queues.
             </p>
             <div className="flex items-center justify-end gap-3 mt-6">
               <button
                 type="button"
                 onClick={() => setDeleteBlogTarget(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 transition"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteBlog}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition shadow-sm cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition shadow-xs cursor-pointer"
               >
                 Purge Article
               </button>

@@ -17,6 +17,7 @@ import {
   toggleAdminStatus
 } from '../services/api';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import ImageDropzone from '../components/ImageDropzone';
 import {
   Plus,
   Edit3,
@@ -1457,35 +1458,12 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {/* Cover Image URL Input with Live Preview */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Cover Image URL
-                  </label>
-                  <span className="text-[11px] text-slate-400">Direct image link (Unsplash, CDN)</span>
-                </div>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/photo-1518770660439-4636190af475..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900"
-                />
-                {imageUrl && (
-                  <div className="mt-2 relative h-28 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
-                    <img
-                      src={imageUrl}
-                      alt="Cover Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <span className="absolute bottom-1 right-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">
-                      Cover Preview
-                    </span>
-                  </div>
-                )}
-              </div>
+              {/* Cover Image Upload (Cloudinary Drag & Drop or Direct Link) */}
+              <ImageDropzone
+                value={imageUrl}
+                onChange={setImageUrl}
+                label="Cover Image"
+              />
 
               {/* Main Content with Write / Live Preview Tabs */}
               <div>

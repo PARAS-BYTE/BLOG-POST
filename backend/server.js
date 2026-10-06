@@ -7,6 +7,7 @@ const cors = require('cors');
 const blogRoutes = require('./routes/blogRoutes');
 const authRoutes = require('./routes/authRoutes');
 const cronRoutes = require('./routes/cronRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/blogs', blogRoutes);
 app.use('/api/posts', blogRoutes); // Alias for spec route consistency
 app.use('/api/auth', authRoutes);
 app.use('/api/cron', cronRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Static frontend serving (for single-container production / Docker)
 const publicDistPath = path.join(__dirname, 'public');

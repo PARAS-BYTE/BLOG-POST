@@ -124,4 +124,22 @@ export const fetchQueueStatus = async () => {
     const response = await API.get('/cron/queue-status');
     return response.data;
 };
+
+// Cloudinary Image Upload API
+export const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await API.post('/upload/image', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    return response.data;
+};
+
+export const checkUploadStatus = async () => {
+    const response = await API.get('/upload/status');
+    return response.data;
+};
+
 
