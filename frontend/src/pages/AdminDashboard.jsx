@@ -812,25 +812,18 @@ export default function AdminDashboard() {
             <ExternalLink className="w-3.5 h-3.5" /> View Public Site
           </Link>
 
-          <button
-            onClick={() => {
-              if (!canCreate) {
-                showToast('Permission Denied: You do not have permission to create articles.');
-                return;
-              }
-              openCreateModal('Published');
-            }}
-            disabled={!canCreate}
-            title={canCreate ? 'Create Article' : 'Permission to create blogs is restricted by SuperAdmin'}
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg transition shadow-xs cursor-pointer ${
+          <Link
+            to="/admin/create"
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg transition shadow-xs ${
               canCreate
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                : 'bg-slate-200 text-slate-400 pointer-events-none border border-slate-300'
             }`}
+            title={canCreate ? 'Compose New Article' : 'Permission to create blogs is restricted by SuperAdmin'}
           >
             {canCreate ? <Plus className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
             Create Article
-          </button>
+          </Link>
 
           <button
             onClick={handleLogout}
@@ -991,12 +984,12 @@ export default function AdminDashboard() {
             <p className="text-xs text-slate-400 mb-4">
               Try adjusting your search filter, select a different tab, or create a new blog.
             </p>
-            <button
-              onClick={() => openCreateModal('Published')}
-              className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer"
+            <Link
+              to="/admin/create"
+              className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold px-3 py-1.5 rounded-lg transition"
             >
               + Create Article Now
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1245,24 +1238,17 @@ export default function AdminDashboard() {
                           )}
 
                           {/* Edit Article */}
-                          <button
-                            onClick={() => {
-                              if (!canEdit) {
-                                showToast('Permission Denied: You do not have permission to edit articles.');
-                                return;
-                              }
-                              openEditModal(blog);
-                            }}
-                            disabled={!canEdit}
-                            title={canEdit ? 'Edit article details and schedule' : 'Edit permission restricted by SuperAdmin'}
+                          <Link
+                            to={`/admin/edit/${blog._id}`}
+                            title={canEdit ? 'Edit article in dedicated editor' : 'Edit permission restricted by SuperAdmin'}
                             className={`p-1.5 rounded-md transition ${
                               canEdit
                                 ? 'text-slate-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer'
-                                : 'text-slate-300 cursor-not-allowed opacity-60'
+                                : 'text-slate-300 pointer-events-none opacity-60'
                             }`}
                           >
                             {canEdit ? <Edit3 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
-                          </button>
+                          </Link>
 
                           {/* Delete Article */}
                           <button

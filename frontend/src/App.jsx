@@ -7,6 +7,7 @@ import BlogDetail from './pages/BlogDetail';
 import AdminLogin from './pages/AdminLogin';
 import AdminRegister from './pages/AdminRegister';
 import AdminDashboard from './pages/AdminDashboard';
+import BlogEditor from './pages/BlogEditor';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import SuperAdminPanel from './pages/SuperAdminPanel';
@@ -38,6 +39,32 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Dedicated Standalone Article Composition & Editing Routes */}
+            <Route
+              path="/admin/create"
+              element={
+                <ProtectedRoute>
+                  <BlogEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/edit/:id"
+              element={
+                <ProtectedRoute>
+                  <BlogEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/new-post"
+              element={
+                <ProtectedRoute>
+                  <BlogEditor />
                 </ProtectedRoute>
               }
             />

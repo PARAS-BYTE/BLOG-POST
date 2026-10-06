@@ -42,7 +42,8 @@ import {
   CheckCircle,
   FileText,
   Layers,
-  Settings
+  Settings,
+  Edit3
 } from 'lucide-react';
 
 /**
@@ -1294,6 +1295,15 @@ export default function SuperAdminPanel() {
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </Link>
                               )}
+
+                              {/* Edit Article in Full Editor */}
+                              <Link
+                                to={`/admin/edit/${blog._id}`}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition"
+                                title="Edit in Full Article Editor"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </Link>
 
                               {/* Delete Article */}
                               <button
