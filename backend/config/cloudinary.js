@@ -1,23 +1,41 @@
+require('dotenv').config();
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary with environment variables
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
-  api_key: process.env.CLOUDINARY_API_KEY || '',
-  api_secret: process.env.CLOUDINARY_API_SECRET || '',
-  secure: true
-});
+/**
+ * Configure and return Cloudinary instance with trimmed credentials
+ */
+const configureCloudinary = () => {
+  const cloud_name = (process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const api_key = (process.env.CLOUDINARY_API_KEY || '').trim();
+  const api_secret = (process.env.CLOUDINARY_API_SECRET || '').trim();
+
+  cloudinary.config({
+    cloud_name,
+    api_key,
+    api_secret,
+    secure: true
+  });
+
+  return { cloud_name, api_key, api_secret };
+};
+
+// Initial config
+configureCloudinary();
 
 /**
  * Check if Cloudinary is properly configured with credentials
  */
 const isCloudinaryConfigured = () => {
+  const cloud_name = (process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const api_key = (process.env.CLOUDINARY_API_KEY || '').trim();
+  const api_secret = (process.env.CLOUDINARY_API_SECRET || '').trim();
+
   return Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET &&
-    !process.env.CLOUDINARY_CLOUD_NAME.includes('your_') &&
-    !process.env.CLOUDINARY_API_KEY.includes('your_')
+    cloud_name &&
+    api_key &&
+    api_secret &&
+    !cloud_name.includes('your_') &&
+    !api_key.includes('your_')
   );
 };
 
@@ -29,6 +47,9 @@ const isCloudinaryConfigured = () => {
  */
 const uploadBufferToCloudinary = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
+    // Re-verify and ensure latest credentials are bound to Cloudinary instance
+    const { cloud_name } = configureCloudinary();
+
     if (!isCloudinaryConfigured()) {
       return reject(
         new Error(
@@ -62,6 +83,7 @@ const uploadBufferToCloudinary = (buffer, options = {}) => {
 
 module.exports = {
   cloudinary,
+  configureCloudinary,
   isCloudinaryConfigured,
   uploadBufferToCloudinary
 };

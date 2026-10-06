@@ -1,5 +1,6 @@
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
+require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -8,7 +9,6 @@ const blogRoutes = require('./routes/blogRoutes');
 const authRoutes = require('./routes/authRoutes');
 const cronRoutes = require('./routes/cronRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
-require('dotenv').config();
 
 const app = express();
 
