@@ -37,7 +37,7 @@ const verifyCronAuth = async (req, res, next) => {
                 try {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET);
                     const admin = await Admin.findById(decoded.id).select('-password');
-                    if (admin) {
+                    if (admin && admin.status !== 'revoked' && admin.isActive !== false) {
                         req.admin = admin;
                         return next();
                     }
