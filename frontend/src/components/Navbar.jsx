@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, LogOut, Moon, BookOpen, Compass } from 'lucide-react';
+import { Shield, LogOut, Moon, BookOpen, Compass, Crown } from 'lucide-react';
 
 /**
  * Navbar Component
@@ -12,6 +12,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const token = localStorage.getItem('adminToken');
+  const role = localStorage.getItem('adminRole');
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -70,6 +71,21 @@ export default function Navbar() {
           {/* Admin Management Link */}
           {token ? (
             <div className="flex items-center gap-2">
+              {role === 'superadmin' && (
+                <Link
+                  to="/superadmin/dashboard"
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-sm ${
+                    location.pathname.startsWith('/superadmin')
+                      ? 'bg-amber-500 text-slate-950 font-extrabold'
+                      : 'text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40'
+                  }`}
+                  title="SuperAdministrator Operations Center"
+                >
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  <span>SuperAdmin Panel</span>
+                </Link>
+              )}
+
               <Link
                 to="/admin/dashboard"
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${

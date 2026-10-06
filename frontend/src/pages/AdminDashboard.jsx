@@ -759,7 +759,18 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* SuperAdmin Only: Manage Team Admins Button */}
+          {/* SuperAdmin Only: Go to Dedicated SuperAdmin Panel */}
+          {isSuperAdmin && (
+            <Link
+              to="/superadmin/dashboard"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 border border-amber-500 px-3.5 py-2 rounded-lg transition shadow-xs cursor-pointer"
+              title="Open the dedicated SuperAdministrator Command Center"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-900" /> SuperAdmin Command Center
+            </Link>
+          )}
+
+          {/* SuperAdmin Quick Modal: Manage Team Admins */}
           {isSuperAdmin && (
             <button
               onClick={() => {

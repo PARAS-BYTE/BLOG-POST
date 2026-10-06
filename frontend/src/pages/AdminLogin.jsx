@@ -27,7 +27,11 @@ export default function AdminLogin() {
       localStorage.setItem('adminEmail', data.email);
       localStorage.setItem('adminStatus', data.status || 'active');
       localStorage.setItem('adminPermissions', JSON.stringify(data.permissions || {}));
-      navigate('/admin/dashboard');
+      if (data.role === 'superadmin') {
+        navigate('/superadmin/dashboard');
+      } else {
+        navigate('/admin/dashboard');
+      }
     } catch (err) {
       setError(
         err.response?.data?.message || 'Invalid email or password. Please try again.'

@@ -8,6 +8,8 @@ import AdminLogin from './pages/AdminLogin';
 import AdminRegister from './pages/AdminRegister';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import SuperAdminRoute from './components/SuperAdminRoute';
+import SuperAdminPanel from './pages/SuperAdminPanel';
 
 /**
  * Main Application Component
@@ -37,6 +39,24 @@ function App() {
                 <ProtectedRoute>
                   <AdminDashboard />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* Protected SuperAdministrator Command Center */}
+            <Route
+              path="/superadmin/dashboard"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminPanel />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="/superadmin"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminPanel />
+                </SuperAdminRoute>
               }
             />
           </Routes>
