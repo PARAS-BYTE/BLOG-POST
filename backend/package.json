@@ -4,8 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node test-scheduler.js",
-    "test:scheduler": "node test-scheduler.js",
+    "test": "node test-auth-integration.js",
     "test:auth": "node test-auth-integration.js",
     "test:upload": "node test-upload-integration.js",
     "start": "node server.js",

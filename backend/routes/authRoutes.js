@@ -284,4 +284,70 @@ router.delete('/admins/:id', protect, requireSuperAdmin, async (req, res) => {
     }
 });
 
+// @desc    SuperAdmin updates/resets an admin's password
+// @route   PUT /api/auth/admins/:id/password
+// @access  SuperAdmin Only
+router.put('/admins/:id/password', protect, requireSuperAdmin, async (req, res) => {
+    try {
+        const { newPassword, password } = req.body;
+        const passToSet = newPassword || password;
+
+        if (!passToSet || passToSet.trim().length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+        }
+
+        const targetAdmin = await Admin.findById(req.params.id);
+        if (!targetAdmin) {
+            return res.status(404).json({ message: 'Admin account not found.' });
+        }
+
+        targetAdmin.password = passToSet.trim();
+        await targetAdmin.save();
+
+        res.json({
+            success: true,
+            message: `Password updated successfully for ${targetAdmin.email}.`
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Server error updating password.' });
+    }
+});
+
+// @desc    Admin changes their own password
+// @route   PUT /api/auth/change-password
+// @access  Protected (Any logged-in admin)
+router.put('/change-password', protect, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: 'Please provide both current and new passwords.' });
+        }
+
+        if (newPassword.trim().length < 6) {
+            return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+        }
+
+        const admin = await Admin.findById(req.admin._id);
+        if (!admin) {
+            return res.status(404).json({ message: 'Admin not found.' });
+        }
+
+        const isMatch = await admin.matchPassword(currentPassword);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Incorrect current password.' });
+        }
+
+        admin.password = newPassword.trim();
+        await admin.save();
+
+        res.json({
+            success: true,
+            message: 'Your password has been changed successfully.'
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Server error changing password.' });
+    }
+});
+
 module.exports = router;

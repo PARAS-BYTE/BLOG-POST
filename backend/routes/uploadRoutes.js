@@ -119,4 +119,77 @@ router.post('/image', protect, (req, res) => {
   });
 });
 
+/**
+ * @route   POST /api/upload/images
+ * @desc    Upload multiple image files (up to 10) directly to Cloudinary
+ * @access  Private (Admins / SuperAdmin)
+ */
+router.post('/images', protect, (req, res) => {
+  upload.array('images', 10)(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'One or more images exceed the maximum size limit (10MB).'
+        });
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    } else if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image files provided.'
+      });
+    }
+
+    try {
+      const isConfigured = isCloudinaryConfigured();
+      const uploadedImages = [];
+
+      for (const file of req.files) {
+        if (!isConfigured) {
+          const base64Data = file.buffer.toString('base64');
+          const fallbackDataUrl = `data:${file.mimetype};base64,${base64Data}`;
+          uploadedImages.push({
+            url: fallbackDataUrl,
+            isFallback: true,
+            bytes: file.size
+          });
+        } else {
+          const result = await uploadBufferToCloudinary(file.buffer, {
+            folder: 'utsanova_blogs',
+            tags: ['utsanova', 'blog_gallery', req.user?.email || 'admin']
+          });
+          uploadedImages.push({
+            url: result.secure_url,
+            publicId: result.public_id,
+            format: result.format,
+            bytes: result.bytes,
+            width: result.width,
+            height: result.height
+          });
+        }
+      }
+
+      const urls = uploadedImages.map((img) => img.url);
+
+      return res.status(200).json({
+        success: true,
+        urls,
+        images: uploadedImages,
+        message: `${uploadedImages.length} images uploaded successfully!`
+      });
+    } catch (uploadErr) {
+      console.error('Batch image upload error:', uploadErr);
+      return res.status(500).json({
+        success: false,
+        message: uploadErr.message || 'Failed to upload images.'
+      });
+    }
+  });
+});
+
 module.exports = router;

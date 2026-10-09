@@ -4,7 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { Copy, Check } from 'lucide-react';
 
 /**
- * CodeBlock Component with syntax block styling and 1-click Copy button
+ * CodeBlock Component
+ * macOS/Linear-style window header with terminal dots, language tag, and 1-click Copy button
  */
 function CodeBlock({ className, children }) {
   const [copied, setCopied] = useState(false);
@@ -14,7 +15,16 @@ function CodeBlock({ className, children }) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(codeText);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(codeText);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = codeText;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -23,16 +33,26 @@ function CodeBlock({ className, children }) {
   };
 
   return (
-    <div className="my-5 rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-md">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-800/90 border-b border-slate-700/60 text-xs font-mono text-slate-300">
-        <span className="font-semibold uppercase tracking-wider text-slate-400">
-          {language || 'code'}
-        </span>
+    <div className="my-6 rounded-2xl overflow-hidden bg-[#0d1117] border border-slate-800/80 shadow-md">
+      {/* Terminal Title Bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-slate-800 text-xs font-mono">
+        <div className="flex items-center gap-2">
+          {/* macOS window control dots */}
+          <div className="flex items-center gap-1.5 mr-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]/80 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]/80 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]/80 inline-block"></span>
+          </div>
+          <span className="font-semibold uppercase tracking-wider text-slate-400 text-[11px]">
+            {language || 'code'}
+          </span>
+        </div>
+
         <button
           type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-200 hover:text-white transition cursor-pointer text-xs"
-          title="Copy code to clipboard"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer text-xs font-sans"
+          title="Copy code snippet to clipboard"
         >
           {copied ? (
             <>
@@ -47,7 +67,8 @@ function CodeBlock({ className, children }) {
           )}
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto text-sm text-slate-100 font-mono leading-relaxed">
+
+      <pre className="p-4 sm:p-5 overflow-x-auto text-[13.5px] sm:text-sm text-slate-100 font-mono leading-relaxed">
         <code>{children}</code>
       </pre>
     </div>
@@ -56,40 +77,40 @@ function CodeBlock({ className, children }) {
 
 /**
  * MarkdownRenderer
- * Formats Markdown content into clean, modern, and accessible HTML elements.
- * Handles headings, bold/italics, lists, tables, blockquotes, links, and code blocks.
+ * Formats Markdown content into clean, editorial-grade, and responsive HTML elements.
+ * Optimized for readability, typography hierarchy, and technical content.
  */
 export default function MarkdownRenderer({ content, className = '' }) {
   if (!content) return null;
 
   return (
-    <div className={`markdown-content ${className}`}>
+    <div className={`markdown-content article-prose ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Headings
+          // Headings with clean proportional scaling and anchor feel
           h1: ({ children }) => (
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-8 mb-4 tracking-tight first:mt-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 mt-10 mb-5 tracking-tight first:mt-0 leading-tight">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-7 mb-3 tracking-tight pb-2 border-b border-slate-100 first:mt-0">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 mt-9 mb-4 tracking-tight pb-2.5 border-b border-slate-100 first:mt-0 leading-snug">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mt-6 mb-2 first:mt-0">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mt-7 mb-3 tracking-tight first:mt-0 leading-snug">
               {children}
             </h3>
           ),
           h4: ({ children }) => (
-            <h4 className="text-base sm:text-lg font-semibold text-slate-800 mt-5 mb-2">
+            <h4 className="text-base sm:text-lg font-semibold text-slate-800 mt-6 mb-2">
               {children}
             </h4>
           ),
           h5: ({ children }) => (
-            <h5 className="text-sm sm:text-base font-semibold text-slate-800 mt-4 mb-1">
+            <h5 className="text-sm sm:text-base font-semibold text-slate-800 mt-5 mb-1.5">
               {children}
             </h5>
           ),
@@ -101,7 +122,7 @@ export default function MarkdownRenderer({ content, className = '' }) {
 
           // Paragraphs & Inline Formatting
           p: ({ children }) => (
-            <p className="text-slate-700 leading-relaxed mb-4 text-base sm:text-lg font-normal last:mb-0">
+            <p className="text-slate-700 leading-relaxed mb-6 text-base sm:text-[17px] font-normal last:mb-0">
               {children}
             </p>
           ),
@@ -115,14 +136,14 @@ export default function MarkdownRenderer({ content, className = '' }) {
             <del className="line-through text-slate-400">{children}</del>
           ),
 
-          // Lists
+          // Lists with clear visual hierarchy
           ul: ({ children }) => (
-            <ul className="list-disc pl-6 space-y-2 mb-5 text-slate-700 text-base sm:text-lg">
+            <ul className="list-disc pl-6 space-y-2.5 mb-6 text-slate-700 text-base sm:text-[17px]">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal pl-6 space-y-2 mb-5 text-slate-700 text-base sm:text-lg">
+            <ol className="list-decimal pl-6 space-y-2.5 mb-6 text-slate-700 text-base sm:text-[17px]">
               {children}
             </ol>
           ),
@@ -130,15 +151,15 @@ export default function MarkdownRenderer({ content, className = '' }) {
             <li className="leading-relaxed pl-1">{children}</li>
           ),
 
-          // Blockquotes
+          // Editorial Blockquotes
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-blue-500 bg-blue-50/60 rounded-r-xl px-5 py-3.5 my-5 text-slate-700 italic text-base sm:text-lg shadow-xs">
+            <blockquote className="border-l-4 border-blue-600 bg-gradient-to-r from-blue-50/70 via-indigo-50/30 to-transparent rounded-r-2xl px-5 sm:px-6 py-4 my-6 text-slate-700 italic text-base sm:text-lg shadow-2xs leading-relaxed">
               {children}
             </blockquote>
           ),
 
           // Horizontal rule
-          hr: () => <hr className="my-8 border-slate-200" />,
+          hr: () => <hr className="my-10 border-slate-200" />,
 
           // Links
           a: ({ href, children }) => (
@@ -146,10 +167,32 @@ export default function MarkdownRenderer({ content, className = '' }) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline font-medium transition-colors"
+              className="text-blue-600 hover:text-blue-800 underline underline-offset-4 decoration-blue-300 hover:decoration-blue-600 font-medium transition-colors"
             >
               {children}
             </a>
+          ),
+
+          // Markdown Image Embeds with elegant styling and responsive frame
+          img: ({ src, alt }) => (
+            <figure className="my-8">
+              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
+                <img
+                  src={src}
+                  alt={alt || 'Article visual'}
+                  className="w-full h-auto object-cover max-h-[500px]"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+              {alt && (
+                <figcaption className="text-center text-xs text-slate-500 mt-2 italic">
+                  {alt}
+                </figcaption>
+              )}
+            </figure>
           ),
 
           // Code blocks & Inline code
@@ -159,7 +202,7 @@ export default function MarkdownRenderer({ content, className = '' }) {
             if (isInline) {
               return (
                 <code
-                  className="bg-slate-100 text-rose-600 px-1.5 py-0.5 rounded text-[0.88em] font-mono border border-slate-200"
+                  className="bg-slate-100 text-blue-700 px-1.5 py-0.5 rounded-md text-[0.88em] font-mono border border-slate-200 font-semibold"
                   {...props}
                 >
                   {children}
@@ -173,9 +216,9 @@ export default function MarkdownRenderer({ content, className = '' }) {
             );
           },
 
-          // Tables
+          // Markdown Tables with responsive wrapper
           table: ({ children }) => (
-            <div className="overflow-x-auto my-6 rounded-xl border border-slate-200 shadow-xs">
+            <div className="overflow-x-auto my-7 rounded-2xl border border-slate-200 shadow-2xs">
               <table className="min-w-full divide-y divide-slate-200 text-sm sm:text-base">
                 {children}
               </table>
@@ -188,10 +231,14 @@ export default function MarkdownRenderer({ content, className = '' }) {
             <tbody className="divide-y divide-slate-100 bg-white text-slate-700">{children}</tbody>
           ),
           th: ({ children }) => (
-            <th className="px-4 py-3 text-left font-semibold text-slate-900">{children}</th>
+            <th className="px-4 py-3.5 text-left font-semibold text-slate-900 text-xs sm:text-sm uppercase tracking-wider bg-slate-50">
+              {children}
+            </th>
           ),
           td: ({ children }) => (
-            <td className="px-4 py-3 text-slate-700 align-top">{children}</td>
+            <td className="px-4 py-3.5 text-slate-700 align-top text-xs sm:text-sm leading-relaxed">
+              {children}
+            </td>
           )
         }}
       >

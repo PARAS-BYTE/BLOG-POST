@@ -11,6 +11,9 @@ import BlogEditor from './pages/BlogEditor';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import SuperAdminPanel from './pages/SuperAdminPanel';
+import BackToTop from './components/BackToTop';
+
+import { ThemeProvider } from './context/ThemeContext';
 
 /**
  * Main Application Component
@@ -18,9 +21,10 @@ import SuperAdminPanel from './pages/SuperAdminPanel';
  */
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800 antialiased font-sans">
-        <Navbar />
+    <ThemeProvider>
+      <Router>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-800 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
+          <Navbar />
 
         {/* Main Content Area */}
         <main className="flex-1">
@@ -90,8 +94,10 @@ function App() {
         </main>
 
         <Footer />
+        <BackToTop />
       </div>
     </Router>
+  </ThemeProvider>
   );
 }
 
