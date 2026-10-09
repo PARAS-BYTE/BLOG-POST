@@ -5,12 +5,13 @@ const API = axios.create({
 });
 
 // Public Blog APIs
-export const fetchPublishedBlogs = async (search = '', tag = '', page = 1, limit = 6) => {
+export const fetchPublishedBlogs = async (search = '', tag = '', page = 1, limit = 6, sort = 'latest') => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (tag) params.append('tag', tag);
     if (page) params.append('page', page);
     if (limit) params.append('limit', limit);
+    if (sort) params.append('sort', sort);
 
     const response = await API.get(`/blogs?${params.toString()}`);
     return response.data;
@@ -18,6 +19,36 @@ export const fetchPublishedBlogs = async (search = '', tag = '', page = 1, limit
 
 export const fetchBlogById = async (id) => {
     const response = await API.get(`/blogs/${id}`);
+    return response.data;
+};
+
+export const fetchPopularBlogs = async (limit = 5) => {
+    const response = await API.get(`/blogs/popular?limit=${limit}`);
+    return response.data;
+};
+
+export const fetchRecentBlogs = async (limit = 5) => {
+    const response = await API.get(`/blogs/recent?limit=${limit}`);
+    return response.data;
+};
+
+export const fetchRelatedBlogs = async (id) => {
+    const response = await API.get(`/blogs/${id}/related`);
+    return response.data;
+};
+
+export const likeBlog = async (id, clientId) => {
+    const response = await API.post(`/blogs/${id}/like`, { clientId });
+    return response.data;
+};
+
+export const addComment = async (id, commentData) => {
+    const response = await API.post(`/blogs/${id}/comments`, commentData);
+    return response.data;
+};
+
+export const incrementBlogView = async (id) => {
+    const response = await API.post(`/blogs/${id}/view`);
     return response.data;
 };
 
@@ -81,8 +112,30 @@ export const deleteAdminAccount = async (id) => {
     return response.data;
 };
 
+export const updateAdminPermissions = async (id, permissions) => {
+    const response = await API.put(`/auth/admins/${id}/permissions`, { permissions });
+    return response.data;
+};
+
+export const toggleAdminStatus = async (id, status) => {
+    const response = await API.put(`/auth/admins/${id}/status`, { status });
+    return response.data;
+};
+
 export const fetchCurrentUser = async () => {
     const response = await API.get('/auth/me');
+    return response.data;
+};
+
+// SuperAdmin resets/updates password of an admin
+export const updateAdminPassword = async (id, newPassword) => {
+    const response = await API.put(`/auth/admins/${id}/password`, { newPassword });
+    return response.data;
+};
+
+// Admin / SuperAdmin changes their own password
+export const changePassword = async (currentPassword, newPassword) => {
+    const response = await API.put('/auth/change-password', { currentPassword, newPassword });
     return response.data;
 };
 
@@ -93,25 +146,36 @@ export const generateAIBlog = async (topic) => {
     return response.data;
 };
 
-// Scheduled Blog Post APIs
-export const scheduleBlog = async (id, scheduledAt) => {
-    const response = await API.post(`/blogs/${id}/schedule`, { scheduledAt });
+// Cloudinary Image Upload API
+export const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await API.post('/upload/image', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
     return response.data;
 };
 
-export const cancelScheduledBlog = async (id) => {
-    const response = await API.post(`/blogs/${id}/cancel-schedule`);
+// Cloudinary Batch Multiple Image Upload API
+export const uploadMultipleImages = async (files) => {
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+    }
+    const response = await API.post('/upload/images', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
     return response.data;
 };
 
-// Cron & Queue Management APIs (Protected by Admin token / CRON_SECRET)
-export const triggerCronPublish = async () => {
-    const response = await API.post('/cron/publish-scheduled-posts');
+export const checkUploadStatus = async () => {
+    const response = await API.get('/upload/status');
     return response.data;
 };
 
-export const fetchQueueStatus = async () => {
-    const response = await API.get('/cron/queue-status');
-    return response.data;
-};
+
 

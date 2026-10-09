@@ -21,11 +21,17 @@ export default function AdminLogin() {
 
     try {
       const data = await adminLogin({ email: email.trim(), password });
-      // Store token and role securely in localStorage
+      // Store token, role, and permissions securely in localStorage
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminRole', data.role || 'admin');
       localStorage.setItem('adminEmail', data.email);
-      navigate('/admin/dashboard');
+      localStorage.setItem('adminStatus', data.status || 'active');
+      localStorage.setItem('adminPermissions', JSON.stringify(data.permissions || {}));
+      if (data.role === 'superadmin') {
+        navigate('/superadmin/dashboard');
+      } else {
+        navigate('/admin/dashboard');
+      }
     } catch (err) {
       setError(
         err.response?.data?.message || 'Invalid email or password. Please try again.'
@@ -51,32 +57,32 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
+      <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
         
         {/* Header */}
         <div className="mb-6">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition mb-4"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition mb-4"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to public blog
           </Link>
           
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/50 dark:border-blue-900">
               <Shield className="w-4 h-4" />
             </div>
-            <h1 className="text-xl font-bold text-slate-900">Admin Portal Sign In</h1>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Admin Portal Sign In</h1>
           </div>
-          <p className="text-xs text-slate-500">
-            Sign in as SuperAdmin or Administrator to manage articles and automated scheduling.
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Sign in as SuperAdmin or Administrator to manage articles and platform operations.
           </p>
         </div>
 
         {/* Error Notification */}
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg p-3.5 mb-5 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+          <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-lg p-3.5 mb-5 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
@@ -84,7 +90,7 @@ export default function AdminLogin() {
         {/* Sign In Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Email Address
             </label>
             <div className="relative">
@@ -95,14 +101,14 @@ export default function AdminLogin() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="superadmin@utsanova.com"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 transition"
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Password
               </label>
             </div>
@@ -114,7 +120,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 transition"
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition"
               />
             </div>
           </div>
@@ -136,29 +142,29 @@ export default function AdminLogin() {
         </form>
 
         {/* Quick Autofill Selector */}
-        <div className="mt-5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-          <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+        <div className="mt-5 p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+          <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
             Quick Test Accounts (Auto-fill)
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={fillSuperAdminCredentials}
-              className="flex items-center justify-center gap-1.5 p-2 bg-white border border-amber-200 hover:border-amber-300 hover:bg-amber-50/50 rounded-lg text-xs font-semibold text-amber-900 transition cursor-pointer shadow-2xs"
+              className="flex items-center justify-center gap-1.5 p-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 hover:border-amber-300 dark:hover:border-amber-700 hover:bg-amber-50/50 dark:hover:bg-amber-950/40 rounded-lg text-xs font-semibold text-amber-900 dark:text-amber-300 transition cursor-pointer shadow-2xs"
             >
-              <Crown className="w-3.5 h-3.5 text-amber-600" /> SuperAdmin
+              <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> SuperAdmin
             </button>
             <button
               type="button"
               onClick={fillAdminCredentials}
-              className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
+              className="flex items-center justify-center gap-1.5 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 transition cursor-pointer shadow-2xs"
             >
-              <UserCheck className="w-3.5 h-3.5 text-blue-600" /> Admin
+              <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Admin
             </button>
           </div>
-          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">
-            • <strong>SuperAdmin</strong> can create & manage admin accounts and schedule blogs.<br/>
-            • <strong>Admin</strong> can create, edit, and schedule blogs.
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed pt-1">
+            • <strong>SuperAdmin</strong> can create & manage admin accounts, reset passwords, and publish articles.<br/>
+            • <strong>Admin</strong> can create, edit, and publish articles.
           </p>
         </div>
 

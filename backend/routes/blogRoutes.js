@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 const Groq = require('groq-sdk');
 
 // Generate Blog Content with AI using Groq (Protected)
 // Note: This endpoint does NOT save the blog to MongoDB; it only provides
 // pre-filled draft values (title, content, tags, conclusion) for the user to review.
-router.post('/ai-generate', protect, async (req, res) => {
+router.post('/ai-generate', protect, checkPermission('canUseAI'), async (req, res) => {
     try {
         const { topic } = req.body;
 
@@ -65,6 +65,7 @@ Respond with ONLY a valid JSON object containing these exact fields:
             title: aiResult.title || '',
             content: aiResult.content || '',
             imageUrl: selectedDummyImage,
+            images: [selectedDummyImage],
             tags: Array.isArray(aiResult.tags) ? aiResult.tags : [],
             conclusion: aiResult.conclusion || ''
         });
@@ -77,10 +78,10 @@ Respond with ONLY a valid JSON object containing these exact fields:
     }
 });
 
-// Get published blogs (supports search, tag filtering, and pagination)
+// Get published blogs (supports search, tag filtering, pagination, and sorting: latest, oldest, popular)
 router.get('/', async (req, res) => {
     try {
-        const { search, tag, page, limit, all } = req.query;
+        const { search, tag, page, limit, all, sort } = req.query;
         let query = { status: 'Published' };
 
         // Filter by exact tag if clicked by user (case-insensitive)
@@ -98,9 +99,17 @@ router.get('/', async (req, res) => {
             ];
         }
 
+        // Sort configuration: latest (default), oldest, popular (views & likes)
+        let sortOption = { publishedAt: -1, createdAt: -1 };
+        if (sort === 'oldest') {
+            sortOption = { publishedAt: 1, createdAt: 1 };
+        } else if (sort === 'popular') {
+            sortOption = { views: -1, likes: -1, publishedAt: -1 };
+        }
+
         // If client explicitly requests all blogs without pagination
         if (all === 'true') {
-            const blogs = await Blog.find(query).sort({ publishedAt: -1, createdAt: -1 });
+            const blogs = await Blog.find(query).sort(sortOption);
             return res.json(blogs);
         }
 
@@ -112,7 +121,7 @@ router.get('/', async (req, res) => {
         const totalPages = Math.max(1, Math.ceil(totalBlogs / limitNum));
 
         const blogs = await Blog.find(query)
-            .sort({ publishedAt: -1, createdAt: -1 })
+            .sort(sortOption)
             .skip(skip)
             .limit(limitNum);
 
@@ -130,6 +139,32 @@ router.get('/', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving blogs', error: error.message });
+    }
+});
+
+// Get popular posts sorted by views & likes (Feature 7)
+router.get('/popular', async (req, res) => {
+    try {
+        const limitNum = Math.max(1, Math.min(20, parseInt(req.query.limit, 10) || 5));
+        const blogs = await Blog.find({ status: 'Published' })
+            .sort({ views: -1, likes: -1, publishedAt: -1 })
+            .limit(limitNum);
+        res.json(blogs);
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving popular blogs', error: error.message });
+    }
+});
+
+// Get recent published posts (Feature 8)
+router.get('/recent', async (req, res) => {
+    try {
+        const limitNum = Math.max(1, Math.min(20, parseInt(req.query.limit, 10) || 5));
+        const blogs = await Blog.find({ status: 'Published' })
+            .sort({ publishedAt: -1, createdAt: -1 })
+            .limit(limitNum);
+        res.json(blogs);
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving recent blogs', error: error.message });
     }
 });
 
@@ -183,111 +218,17 @@ router.get('/admin/all', protect, async (req, res) => {
     }
 });
 
-// Schedule a blog post (Protected)
-// POST /api/blogs/:id/schedule
-router.post('/:id/schedule', protect, async (req, res) => {
-    try {
-        const { scheduledAt } = req.body;
-
-        if (!scheduledAt) {
-            return res.status(400).json({ message: 'scheduledAt date and time is required.' });
-        }
-
-        const scheduledDate = new Date(scheduledAt);
-        if (isNaN(scheduledDate.getTime())) {
-            return res.status(400).json({ message: 'Invalid scheduledAt date format. Must be a valid date/time.' });
-        }
-
-        const now = new Date();
-        if (scheduledDate <= now) {
-            return res.status(400).json({ message: 'Scheduled publishing time must be in the future.' });
-        }
-
-        const blog = await Blog.findById(req.params.id);
-        if (!blog) {
-            return res.status(404).json({ message: 'Blog not found' });
-        }
-
-        if (blog.status === 'Processing') {
-            return res.status(409).json({ message: 'Post is currently being processed and cannot be scheduled.' });
-        }
-
-        if (blog.status === 'Published') {
-            return res.status(400).json({ message: 'This post is already published.' });
-        }
-
-        blog.status = 'Scheduled';
-        blog.scheduledAt = scheduledDate;
-        blog.failureReason = '';
-        blog.claimedAt = null;
-        blog.processingStartedAt = null;
-
-        const updatedBlog = await blog.save();
-        console.log(`[BlogRoutes] Blog "${blog.title}" scheduled for ${scheduledDate.toISOString()}`);
-        res.json(updatedBlog);
-    } catch (error) {
-        res.status(500).json({ message: 'Error scheduling blog', error: error.message });
-    }
-});
-
-// Cancel scheduling and revert to Draft (Protected)
-// POST /api/blogs/:id/cancel-schedule
-router.post('/:id/cancel-schedule', protect, async (req, res) => {
-    try {
-        const blog = await Blog.findById(req.params.id);
-        if (!blog) {
-            return res.status(404).json({ message: 'Blog not found' });
-        }
-
-        if (blog.status === 'Processing') {
-            return res.status(409).json({ message: 'Post is currently being processed and cannot be cancelled.' });
-        }
-
-        if (blog.status === 'Published') {
-            return res.status(400).json({ message: 'Cannot cancel schedule for an already published post.' });
-        }
-
-        blog.status = 'Draft';
-        blog.scheduledAt = null;
-        blog.failureReason = '';
-        blog.claimedAt = null;
-        blog.processingStartedAt = null;
-
-        const updatedBlog = await blog.save();
-        console.log(`[BlogRoutes] Schedule cancelled for "${blog.title}". Reverted to Draft.`);
-        res.json(updatedBlog);
-    } catch (error) {
-        res.status(500).json({ message: 'Error cancelling schedule', error: error.message });
-    }
-});
-
 // Create new blog (Protected)
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, checkPermission('canCreateBlog'), async (req, res) => {
     try {
-        const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
+        const { title, content, imageUrl, images, tags, conclusion, status } = req.body;
 
         if (!title || !content || !conclusion) {
             return res.status(400).json({ message: 'Please fill in all required fields' });
         }
 
-        let blogStatus = status || 'Draft';
-        let parsedScheduledAt = null;
-        let publishedAt = null;
-
-        if (blogStatus === 'Scheduled') {
-            if (!scheduledAt) {
-                return res.status(400).json({ message: 'scheduledAt is required when creating a scheduled post.' });
-            }
-            parsedScheduledAt = new Date(scheduledAt);
-            if (isNaN(parsedScheduledAt.getTime())) {
-                return res.status(400).json({ message: 'Invalid scheduledAt format.' });
-            }
-            if (parsedScheduledAt <= new Date()) {
-                return res.status(400).json({ message: 'Scheduled time must be in the future.' });
-            }
-        } else if (blogStatus === 'Published') {
-            publishedAt = new Date();
-        }
+        const blogStatus = status === 'Published' ? 'Published' : 'Draft';
+        const publishedAt = blogStatus === 'Published' ? new Date() : null;
 
         const formattedTags = Array.isArray(tags)
             ? tags
@@ -295,16 +236,26 @@ router.post('/', protect, async (req, res) => {
                 ? tags.split(',').map((t) => t.trim()).filter(Boolean)
                 : [];
 
+        let formattedImages = [];
+        if (Array.isArray(images)) {
+            formattedImages = images.map(img => typeof img === 'string' ? img.trim() : (img?.url || '')).filter(Boolean);
+        } else if (typeof images === 'string' && images.trim()) {
+            formattedImages = images.split(',').map((t) => t.trim()).filter(Boolean);
+        }
+        if (imageUrl && imageUrl.trim() && !formattedImages.includes(imageUrl.trim())) {
+            formattedImages.unshift(imageUrl.trim());
+        }
+        const primaryImage = imageUrl ? imageUrl.trim() : (formattedImages[0] || '');
+
         const newBlog = new Blog({
             title: title.trim(),
             content: content.trim(),
-            imageUrl: imageUrl ? imageUrl.trim() : '',
+            imageUrl: primaryImage,
+            images: formattedImages,
             tags: formattedTags,
             conclusion: conclusion.trim(),
             status: blogStatus,
-            scheduledAt: parsedScheduledAt,
-            publishedAt,
-            failureReason: ''
+            publishedAt
         });
 
         const savedBlog = await newBlog.save();
@@ -315,24 +266,42 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update blog (Protected)
-// Safe editing for scheduled, draft, and published blogs
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, checkPermission('canEditBlog'), async (req, res) => {
     try {
-        const { title, content, imageUrl, tags, conclusion, status, scheduledAt } = req.body;
+        const { title, content, imageUrl, images, tags, conclusion, status } = req.body;
 
         const blog = await Blog.findById(req.params.id);
         if (!blog) {
             return res.status(404).json({ message: 'Blog not found' });
         }
 
-        if (blog.status === 'Processing') {
-            return res.status(409).json({ message: 'Post is currently being processed and cannot be edited.' });
-        }
-
         if (title !== undefined) blog.title = title.trim();
         if (content !== undefined) blog.content = content.trim();
-        if (imageUrl !== undefined) blog.imageUrl = imageUrl.trim();
         if (conclusion !== undefined) blog.conclusion = conclusion.trim();
+
+        if (images !== undefined) {
+            let formattedImages = [];
+            if (Array.isArray(images)) {
+                formattedImages = images.map(img => typeof img === 'string' ? img.trim() : (img?.url || '')).filter(Boolean);
+            } else if (typeof images === 'string' && images.trim()) {
+                formattedImages = images.split(',').map((t) => t.trim()).filter(Boolean);
+            }
+            if (imageUrl && imageUrl.trim() && !formattedImages.includes(imageUrl.trim())) {
+                formattedImages.unshift(imageUrl.trim());
+            }
+            blog.images = formattedImages;
+            if (!imageUrl && formattedImages.length > 0) {
+                blog.imageUrl = formattedImages[0];
+            }
+        }
+
+        if (imageUrl !== undefined) {
+            blog.imageUrl = imageUrl.trim();
+            if (blog.imageUrl && (!blog.images || blog.images.length === 0)) {
+                blog.images = [blog.imageUrl];
+            }
+        }
+
         if (tags !== undefined) {
             blog.tags = Array.isArray(tags)
                 ? tags
@@ -341,43 +310,10 @@ router.put('/:id', protect, async (req, res) => {
                     : [];
         }
 
-        // Handle publication status transitions
         if (status !== undefined) {
-            blog.status = status;
-            if (status === 'Published') {
-                if (!blog.publishedAt) {
-                    blog.publishedAt = new Date();
-                }
-                blog.scheduledAt = null;
-                blog.failureReason = '';
-                blog.claimedAt = null;
-                blog.processingStartedAt = null;
-            } else if (status === 'Draft') {
-                blog.scheduledAt = null;
-                blog.failureReason = '';
-                blog.claimedAt = null;
-                blog.processingStartedAt = null;
-            }
-        }
-
-        // Handle explicit scheduledAt updates
-        if (scheduledAt !== undefined) {
-            if (scheduledAt === null || scheduledAt === '') {
-                blog.scheduledAt = null;
-                if (blog.status === 'Scheduled') {
-                    blog.status = 'Draft';
-                }
-            } else {
-                const parsedDate = new Date(scheduledAt);
-                if (isNaN(parsedDate.getTime())) {
-                    return res.status(400).json({ message: 'Invalid scheduledAt format.' });
-                }
-                if (parsedDate <= new Date()) {
-                    return res.status(400).json({ message: 'Scheduled time must be in the future.' });
-                }
-                blog.scheduledAt = parsedDate;
-                blog.status = 'Scheduled';
-                blog.failureReason = '';
+            blog.status = status === 'Published' ? 'Published' : 'Draft';
+            if (blog.status === 'Published' && !blog.publishedAt) {
+                blog.publishedAt = new Date();
             }
         }
 
@@ -389,7 +325,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Delete blog (Protected)
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, checkPermission('canDeleteBlog'), async (req, res) => {
     try {
         const deletedBlog = await Blog.findByIdAndDelete(req.params.id);
         if (!deletedBlog) {
@@ -401,7 +337,140 @@ router.delete('/:id', protect, async (req, res) => {
     }
 });
 
-// Get single blog by ID (Public with preview support)
+// Like / Unlike blog post (Feature 1)
+// POST /api/blogs/:id/like
+router.post('/:id/like', async (req, res) => {
+    try {
+        const { clientId } = req.body;
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        const identifier = (clientId && String(clientId).trim()) || req.ip || 'anonymous';
+        const likedBy = Array.isArray(blog.likedBy) ? blog.likedBy : [];
+        const hasLiked = likedBy.includes(identifier);
+
+        if (hasLiked) {
+            // Unlike post
+            blog.likedBy = likedBy.filter((id) => id !== identifier);
+            blog.likes = Math.max(0, (blog.likes || 1) - 1);
+        } else {
+            // Like post
+            blog.likedBy = [...likedBy, identifier];
+            blog.likes = (blog.likes || 0) + 1;
+        }
+
+        await blog.save();
+        res.json({
+            likes: blog.likes,
+            isLiked: !hasLiked,
+            message: hasLiked ? 'Post unliked' : 'Post liked'
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating like status', error: error.message });
+    }
+});
+
+// Add comment to blog post (Feature 2)
+// POST /api/blogs/:id/comments
+router.post('/:id/comments', async (req, res) => {
+    try {
+        const { name, content } = req.body;
+
+        if (!name || !name.trim() || !content || !content.trim()) {
+            return res.status(400).json({ message: 'Both your name and comment content are required.' });
+        }
+
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        const newComment = {
+            name: name.trim(),
+            content: content.trim(),
+            createdAt: new Date()
+        };
+
+        if (!Array.isArray(blog.comments)) {
+            blog.comments = [];
+        }
+
+        blog.comments.unshift(newComment);
+        await blog.save();
+
+        res.status(201).json({
+            message: 'Comment posted successfully',
+            comments: blog.comments,
+            comment: newComment
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding comment', error: error.message });
+    }
+});
+
+// Explicit view counter increment (Feature 3)
+// POST /api/blogs/:id/view
+router.post('/:id/view', async (req, res) => {
+    try {
+        const blog = await Blog.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { views: 1 } },
+            { returnDocument: 'after', select: 'views' }
+        );
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+        res.json({ views: blog.views });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating view count', error: error.message });
+    }
+});
+
+// Get related published posts for current blog (Feature 6)
+// GET /api/blogs/:id/related
+router.get('/:id/related', async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        const currentTags = Array.isArray(blog.tags) ? blog.tags : [];
+        let relatedBlogs = [];
+
+        // 1. Find published posts that share any tags
+        if (currentTags.length > 0) {
+            relatedBlogs = await Blog.find({
+                _id: { $ne: blog._id },
+                status: 'Published',
+                tags: { $in: currentTags }
+            })
+            .sort({ publishedAt: -1, createdAt: -1 })
+            .limit(3);
+        }
+
+        // 2. If fewer than 3, backfill with newest published posts
+        if (relatedBlogs.length < 3) {
+            const excludeIds = [blog._id, ...relatedBlogs.map((b) => b._id)];
+            const backfill = await Blog.find({
+                _id: { $nin: excludeIds },
+                status: 'Published'
+            })
+            .sort({ publishedAt: -1, createdAt: -1 })
+            .limit(3 - relatedBlogs.length);
+
+            relatedBlogs = [...relatedBlogs, ...backfill];
+        }
+
+        res.json(relatedBlogs);
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving related blogs', error: error.message });
+    }
+});
+
+// Get single blog by ID (Public with preview support + auto view counter)
 router.get('/:id', async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id);
@@ -409,8 +478,10 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Blog not found' });
         }
 
-        // If published, anyone can view it
+        // If published, anyone can view it; increment views
         if (blog.status === 'Published') {
+            Blog.findByIdAndUpdate(blog._id, { $inc: { views: 1 } }).exec().catch(() => {});
+            blog.views = (blog.views || 0) + 1;
             return res.json(blog);
         }
 

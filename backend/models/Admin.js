@@ -17,6 +17,37 @@ const adminSchema = new mongoose.Schema({
         type: String,
         enum: ['superadmin', 'admin'],
         default: 'admin'
+    },
+    status: {
+        type: String,
+        enum: ['active', 'revoked'],
+        default: 'active'
+    },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    permissions: {
+        canCreateBlog: {
+            type: Boolean,
+            default: true
+        },
+        canEditBlog: {
+            type: Boolean,
+            default: true
+        },
+        canDeleteBlog: {
+            type: Boolean,
+            default: true
+        },
+        canUseAI: {
+            type: Boolean,
+            default: true
+        },
+        canScheduleBlog: {
+            type: Boolean,
+            default: true
+        }
     }
 }, {
     timestamps: true

@@ -1,13 +1,11 @@
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const blogRoutes = require('./routes/blogRoutes');
 const authRoutes = require('./routes/authRoutes');
-const cronRoutes = require('./routes/cronRoutes');
-require('dotenv').config();
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
@@ -15,12 +13,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+const { connectDB } = require('./config/db');
+
 // Database Connection
-if (process.env.MONGO_URI) {
-    mongoose.connect(process.env.MONGO_URI)
-        .then(() => console.log('MongoDB Connected'))
-        .catch((err) => console.log('DB Connection Error:', err));
-}
+connectDB();
 
 const path = require('path');
 const fs = require('fs');
@@ -34,7 +30,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/blogs', blogRoutes);
 app.use('/api/posts', blogRoutes); // Alias for spec route consistency
 app.use('/api/auth', authRoutes);
-app.use('/api/cron', cronRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Static frontend serving (for single-container production / Docker)
 const publicDistPath = path.join(__dirname, 'public');
@@ -60,21 +56,6 @@ const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-    // Automated background publisher for local development & Docker environments
-    // (In Vercel serverless, process.env.VERCEL is set, so Vercel Cron/external trigger handles production)
-    if (!process.env.VERCEL) {
-        const { processScheduledPosts } = require('./services/schedulerService');
-        const LOCAL_POLL_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
-        setInterval(async () => {
-            try {
-                await processScheduledPosts({ batchLimit: 50 });
-            } catch (err) {
-                console.error('[AutoPublisher] Error during local check:', err.message);
-            }
-        }, LOCAL_POLL_INTERVAL_MS);
-        console.log('[AutoPublisher] Local automated publisher active (checking MongoDB every 10s)');
-    }
 }
 
 module.exports = app;

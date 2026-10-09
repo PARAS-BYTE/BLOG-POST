@@ -8,6 +8,7 @@ Website: [www.about.utsanova.com](https://about.utsanova.com) | Email: [hr@utsan
 ---
 
 ## 📑 Table of Contents
+- [✨ 15 Key Assigned Features (Implemented)](#-15-key-assigned-features-implemented)
 - [Architecture & System Overview](#-architecture--system-overview)
 - [Scheduled Publishing System Architecture](#-scheduled-publishing-system-architecture)
 - [Why Vercel Cron Instead of `node-cron`?](#-why-vercel-cron-instead-of-node-cron)
@@ -15,6 +16,7 @@ Website: [www.about.utsanova.com](https://about.utsanova.com) | Email: [hr@utsan
 - [Timezone Handling & Accuracy](#-timezone-handling--accuracy)
 - [Database Schema & Indexing](#-database-schema--indexing)
 - [Complete API Documentation](#-complete-api-documentation)
+  - [Assigned Features APIs (Likes, Comments, Views, Related)](#assigned-features-apis)
   - [Scheduling & Cron APIs](#scheduling--cron-apis)
   - [Blog Management APIs](#blog-management-apis)
   - [Authentication APIs](#authentication-apis)
@@ -25,6 +27,30 @@ Website: [www.about.utsanova.com](https://about.utsanova.com) | Email: [hr@utsan
 - [Environment Variables Guide](#-environment-variables-guide)
 - [Automated Testing Strategy & Test Suite](#-automated-testing-strategy--test-suite)
 - [Troubleshooting & Gotchas](#-troubleshooting--gotchas)
+
+---
+
+## ✨ 15 Key Assigned Features (Implemented)
+
+The following 15 production features have been engineered, integrated, and tested across desktop and mobile devices:
+
+| SL N. | Feature | Description | Implementation Details |
+| :---: | :--- | :--- | :--- |
+| **1** | **Like / Unlike Blog** | Users can like or unlike a blog post | Interactive heart button with live counter, optimistic client update, client/IP toggle tracking via `POST /api/blogs/:id/like` |
+| **2** | **Comments** | Users can add comments to blog posts | Full comment submission form with author name, content, validation, timestamp, and live comments feed via `POST /api/blogs/:id/comments` |
+| **3** | **Blog View Counter** | Track and display the number of views | Automatic atomic view increment `$inc: { views: 1 }` on public visits + explicit `POST /api/blogs/:id/view` endpoint; badges displayed on home cards and article header |
+| **4** | **Character / Word Counter** | Show character & word count while writing | Real-time live character and word counters in `BlogEditor.jsx` for article body, title, conclusion, and sidebar summary |
+| **5** | **Reading Time** | Calculate and display estimated reading time | Computed dynamically (~200 words per minute) and displayed across home cards, article detail, and editor summary |
+| **6** | **Related Posts** | Display blogs related to current post | Intelligent recommendation engine matching shared tags with fallback backfill; displayed in 3-card grid on `BlogDetail.jsx` |
+| **7** | **Popular Posts** | Display posts based on highest views | Ranked queries based on views & likes (`GET /api/blogs/popular`); quick-access "Popular" pill filter on home page & navbar |
+| **8** | **Recent Posts** | Display the latest published blog posts | Filter by latest publication date (`GET /api/blogs/recent`); one-click tab on home page |
+| **9** | **Sort Blogs** | Sort blogs by Latest, Oldest, or Popular | Sleek sort selector supporting `sort=latest`, `sort=popular`, and `sort=oldest` synced with URL search params & server pagination |
+| **10** | **Responsive Mobile Navbar** | Navigation menu responsive for mobile | Hamburger menu toggle (`Menu` / `X`) with slide-down drawer menu on small screens (`md:hidden`); fully responsive |
+| **11** | **Copy Blog Link** | Allow users to copy the blog URL | Quick "Copy Link" / "Share" button with animated checkmark feedback and clipboard toast on both `BlogDetail.jsx` and `Home.jsx` cards |
+| **12** | **Delete Confirmation Modal** | Show confirmation before deleting a blog | Accessible `DeleteConfirmationModal` component with danger badge, article title, and escape/backdrop dismiss |
+| **13** | **Reading Progress Bar** | Show reading progress while viewing a blog | Sticky progress bar at the top of viewport dynamically tracking reading scroll percentage in real time |
+| **14** | **Back-to-Top Button** | Quickly return to the top of the page | Floating circular button appearing smoothly when scrolling > 280px with smooth scroll-to-top behavior |
+| **15** | **Image Compression** | Compress uploaded images before storing them | Client-side HTML5 Canvas compression downscaling large dimensions to max 1600x1200 and WebP/JPEG conversion (-70% to -90% size) + Cloudinary auto quality transformations |
 
 ---
 
@@ -204,7 +230,17 @@ const blogSchema = new mongoose.Schema({
     scheduledAt: { type: Date, default: null },
     publishedAt: { type: Date, default: null },
     claimedAt: { type: Date, default: null },
-    failureReason: { type: String, default: '' }
+    failureReason: { type: String, default: '' },
+    likes: { type: Number, default: 0 },
+    likedBy: { type: [String], default: [] },
+    views: { type: Number, default: 0 },
+    comments: [
+        {
+            name: { type: String, required: true, trim: true },
+            content: { type: String, required: true, trim: true },
+            createdAt: { type: Date, default: Date.now }
+        }
+    ]
 }, {
     timestamps: true
 });
@@ -224,7 +260,115 @@ The compound index `{ status: 1, scheduledAt: 1 }` allows MongoDB to execute thi
 
 ## 📡 Complete API Documentation
 
-### Scheduling & Cron APIs
+### Assigned Features APIs
+
+#### 1. Like / Unlike Blog Post
+Toggle like status for a blog post. If user/client has already liked it, it unlikes; otherwise it likes.
+- **URL**: `/api/blogs/:id/like`
+- **Method**: `POST`
+- **Auth Required**: No (Public / Client identifier)
+- **Request Body**:
+```json
+{
+  "clientId": "client_abc123"
+}
+```
+- **Success Response (200 OK)**:
+```json
+{
+  "likes": 5,
+  "isLiked": true,
+  "message": "Post liked"
+}
+```
+
+#### 2. Add Comment to Blog Post
+Submit a new user comment with author name and message body.
+- **URL**: `/api/blogs/:id/comments`
+- **Method**: `POST`
+- **Auth Required**: No (Public)
+- **Request Body**:
+```json
+{
+  "name": "Sarah Developer",
+  "content": "Great overview of the microservice architecture!"
+}
+```
+- **Success Response (201 Created)**:
+```json
+{
+  "message": "Comment posted successfully",
+  "comments": [ ... ],
+  "comment": {
+    "name": "Sarah Developer",
+    "content": "Great overview of the microservice architecture!",
+    "createdAt": "2026-10-09T10:00:00.000Z"
+  }
+}
+```
+
+#### 3. Increment Blog View Counter
+Increment views count for a published blog post.
+- **URL**: `/api/blogs/:id/view`
+- **Method**: `POST`
+- **Auth Required**: No (Public)
+- **Success Response (200 OK)**:
+```json
+{
+  "views": 142
+}
+```
+
+#### 4. Get Related Blog Posts
+Fetch up to 3 published posts sharing tags with the specified blog (with fallback to recent posts).
+- **URL**: `/api/blogs/:id/related`
+- **Method**: `GET`
+- **Auth Required**: No (Public)
+- **Success Response (200 OK)**:
+```json
+[
+  { "_id": "...", "title": "Related Article", "views": 25, "tags": ["Engineering"] }
+]
+```
+
+#### 5. Get Popular Blog Posts
+Fetch top published posts ranked by views and likes.
+- **URL**: `/api/blogs/popular?limit=5`
+- **Method**: `GET`
+- **Auth Required**: No (Public)
+- **Success Response (200 OK)**: Array of top-ranked blog objects.
+
+#### 6. Get Recent Blog Posts
+Fetch latest published posts ordered by `publishedAt` descending.
+- **URL**: `/api/blogs/recent?limit=5`
+- **Method**: `GET`
+- **Auth Required**: No (Public)
+- **Success Response (200 OK)**: Array of newest published blog objects.
+
+#### 7. Filter & Sort Published Blogs
+Fetch paginated published blogs with search, tag filter, and multi-attribute sorting.
+- **URL**: `/api/blogs?search=react&tag=Architecture&sort=popular&page=1&limit=6`
+- **Method**: `GET`
+- **Query Params**:
+  - `sort`: `latest` (default), `popular` (by views & likes), `oldest` (earliest published)
+  - `search`: string keyword across title, content, and tags
+  - `tag`: exact tag filter
+  - `page`: page number (1-indexed)
+  - `limit`: items per page (default: 6)
+- **Success Response (200 OK)**:
+```json
+{
+  "blogs": [ ... ],
+  "totalBlogs": 12,
+  "totalPages": 2,
+  "currentPage": 1,
+  "limit": 6,
+  "hasMore": true,
+  "tags": ["Architecture", "React", "Node"]
+}
+```
+
+---
 
 #### 1. Schedule a Post
 Schedule an existing Draft or update a Scheduled post with a future publishing timestamp.
