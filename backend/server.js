@@ -9,8 +9,20 @@ const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
-// Middleware
-app.use(express.json());
+// Middleware - Allow up to 10MB JSON and URL-encoded payloads for rich articles & attachments
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Error handling middleware for payload too large and malformed request bodies
+app.use((err, req, res, next) => {
+    if (err && (err.status === 413 || err.type === 'entity.too.large')) {
+        return res.status(413).json({
+            message: 'Request payload too large (413). Attached pictures or content exceed the upload size limit. Please compress images or configure Cloudinary on Vercel.'
+        });
+    }
+    next(err);
+});
+
 app.use(cors());
 
 const { connectDB } = require('./config/db');
