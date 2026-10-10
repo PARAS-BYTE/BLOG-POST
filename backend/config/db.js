@@ -141,6 +141,9 @@ async function resolveMongoSrvViaHttps(srvUri) {
  * 3. Automatic fallback to local MongoDB (mongodb://127.0.0.1:27017/utsanova_blog) if Atlas fails
  */
 async function connectDB() {
+    if (mongoose.connection.readyState === 1) {
+        return;
+    }
     const rawUri = process.env.MONGO_URI;
     const localUri = process.env.LOCAL_MONGO_URI || 'mongodb://127.0.0.1:27017/utsanova_blog';
 
@@ -151,46 +154,40 @@ async function connectDB() {
     }
 
     if (!rawUri) {
-        console.warn('⚠️ MONGO_URI is not defined. Attempting local MongoDB...');
-        return await tryConnect(localUri, 'Local MongoDB (Default)');
+        console.error('❌ MONGO_URI is not defined in backend/.env.');
+        return;
     }
 
-    // Attempt 1: Direct Mongoose connect (works if system DNS supports SRV or if URI is non-SRV)
+    // Attempt 1: Direct Mongoose connect to Cloud Atlas
     try {
-        await mongoose.connect(rawUri, { serverSelectionTimeoutMS: 3000 });
-        console.log('✅ MongoDB Connected successfully (Direct)');
+        await mongoose.connect(rawUri, { serverSelectionTimeoutMS: 5000 });
+        console.log('✅ MongoDB Connected successfully to Cloud Atlas!');
         return;
     } catch (directErr) {
-        const isDnsError = directErr.message && (
-            directErr.message.includes('querySrv') ||
-            directErr.message.includes('ENOTFOUND') ||
-            directErr.message.includes('ECONNREFUSED') ||
-            directErr.message.includes('ETIMEOUT')
-        );
-
-        if (isDnsError && rawUri.startsWith('mongodb+srv://')) {
-            console.log('⚠️ Standard SRV DNS failed (' + directErr.message + '). Attempting DNS-over-HTTPS resolution fallback...');
+        // If it's a mongodb+srv:// URI and direct connection failed (e.g. SRV DNS blocked by ISP)
+        if (rawUri.startsWith('mongodb+srv://')) {
+            console.log('⚠️ Direct Atlas SRV connection failed (' + directErr.message + '). Attempting DNS-over-HTTPS resolution for Cloud Atlas...');
 
             try {
                 const fallbackUri = await resolveMongoSrvViaHttps(rawUri);
-                await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 6000 });
-                console.log('✅ MongoDB Connected successfully (via HTTPS DNS Fallback)');
+                await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 8000 });
+                console.log('✅ MongoDB Connected successfully to Cloud Atlas (via HTTPS DNS Resolver)!');
                 return;
             } catch (fallbackErr) {
-                console.warn('⚠️ DNS-over-HTTPS Atlas connection failed:', fallbackErr.message);
+                console.error('❌ Cloud Atlas connection failed via HTTPS DNS Resolver:', fallbackErr.message);
             }
         } else {
-            console.warn('⚠️ Atlas connection failed:', directErr.message);
+            console.error('❌ Cloud Atlas connection failed:', directErr.message);
         }
 
-        // Attempt 3: Automatic fallback to local MongoDB instance
-        console.log('🔄 Attempting fallback to local MongoDB (' + localUri + ')...');
-        const localConnected = await tryConnect(localUri, 'Local MongoDB Fallback');
-        if (localConnected) {
-            return;
+        // Only fall back to local if explicitly allowed
+        if (process.env.ALLOW_LOCAL_FALLBACK === 'true') {
+            console.log('🔄 ALLOW_LOCAL_FALLBACK is set. Attempting fallback to local MongoDB (' + localUri + ')...');
+            const localConnected = await tryConnect(localUri, 'Local MongoDB Fallback');
+            if (localConnected) return;
         }
 
-        console.error('❌ Could not connect to Atlas or Local MongoDB.');
+        console.error('❌ Could not establish connection to Cloud MongoDB Atlas.');
         logHelp(directErr.message);
     }
 }

@@ -1,10 +1,8 @@
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-
-const mongoose = require('mongoose');
 require('dotenv').config();
+const mongoose = require('mongoose');
 const Admin = require('./models/Admin');
 const Blog = require('./models/Blog');
+const { connectDB } = require('./config/db');
 
 process.env.NODE_ENV = 'test';
 const app = require('./server');
@@ -14,7 +12,7 @@ let server;
 let baseUrl;
 
 async function startServer() {
-    await mongoose.connect(process.env.MONGO_URI);
+    await connectDB();
     return new Promise((resolve) => {
         server = http.createServer(app);
         server.listen(0, () => {
